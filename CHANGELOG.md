@@ -1,3 +1,9 @@
+## v0.4.0 (2025-05-27)
+
+### Feat
+
+- add advanced dependency resolution and package download tools
+
 ## v0.3.0 (2025-05-27)
 
 ### Feat
