@@ -17,8 +17,7 @@ from .tools import (
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -60,14 +59,14 @@ async def get_package_info(package_name: str) -> dict[str, Any]:
         return {
             "error": str(e),
             "error_type": type(e).__name__,
-            "package_name": package_name
+            "package_name": package_name,
         }
     except Exception as e:
         logger.error(f"Unexpected error querying package {package_name}: {e}")
         return {
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
-            "package_name": package_name
+            "package_name": package_name,
         }
 
 
@@ -103,19 +102,21 @@ async def get_package_versions(package_name: str) -> dict[str, Any]:
         return {
             "error": str(e),
             "error_type": type(e).__name__,
-            "package_name": package_name
+            "package_name": package_name,
         }
     except Exception as e:
         logger.error(f"Unexpected error querying versions for {package_name}: {e}")
         return {
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
-            "package_name": package_name
+            "package_name": package_name,
         }
 
 
 @mcp.tool()
-async def get_package_dependencies(package_name: str, version: str | None = None) -> dict[str, Any]:
+async def get_package_dependencies(
+    package_name: str, version: str | None = None
+) -> dict[str, Any]:
     """Get dependency information for a PyPI package.
 
     This tool retrieves comprehensive dependency information for a Python package,
@@ -138,8 +139,10 @@ async def get_package_dependencies(package_name: str, version: str | None = None
         NetworkError: For network-related errors
     """
     try:
-        logger.info(f"MCP tool: Querying dependencies for {package_name}" +
-                   (f" version {version}" if version else " (latest)"))
+        logger.info(
+            f"MCP tool: Querying dependencies for {package_name}"
+            + (f" version {version}" if version else " (latest)")
+        )
         result = await query_package_dependencies(package_name, version)
         logger.info(f"Successfully retrieved dependencies for package: {package_name}")
         return result
@@ -149,7 +152,7 @@ async def get_package_dependencies(package_name: str, version: str | None = None
             "error": str(e),
             "error_type": type(e).__name__,
             "package_name": package_name,
-            "version": version
+            "version": version,
         }
     except Exception as e:
         logger.error(f"Unexpected error querying dependencies for {package_name}: {e}")
@@ -157,15 +160,13 @@ async def get_package_dependencies(package_name: str, version: str | None = None
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
             "package_name": package_name,
-            "version": version
+            "version": version,
         }
 
 
 @mcp.tool()
 async def check_package_python_compatibility(
-    package_name: str,
-    target_python_version: str,
-    use_cache: bool = True
+    package_name: str, target_python_version: str, use_cache: bool = True
 ) -> dict[str, Any]:
     """Check if a package is compatible with a specific Python version.
 
@@ -190,8 +191,12 @@ async def check_package_python_compatibility(
         NetworkError: For network-related errors
     """
     try:
-        logger.info(f"MCP tool: Checking Python {target_python_version} compatibility for {package_name}")
-        result = await check_python_compatibility(package_name, target_python_version, use_cache)
+        logger.info(
+            f"MCP tool: Checking Python {target_python_version} compatibility for {package_name}"
+        )
+        result = await check_python_compatibility(
+            package_name, target_python_version, use_cache
+        )
         logger.info(f"Compatibility check completed for {package_name}")
         return result
     except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
@@ -200,7 +205,7 @@ async def check_package_python_compatibility(
             "error": str(e),
             "error_type": type(e).__name__,
             "package_name": package_name,
-            "target_python_version": target_python_version
+            "target_python_version": target_python_version,
         }
     except Exception as e:
         logger.error(f"Unexpected error checking compatibility for {package_name}: {e}")
@@ -208,15 +213,13 @@ async def check_package_python_compatibility(
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
             "package_name": package_name,
-            "target_python_version": target_python_version
+            "target_python_version": target_python_version,
         }
 
 
 @mcp.tool()
 async def get_package_compatible_python_versions(
-    package_name: str,
-    python_versions: list[str] | None = None,
-    use_cache: bool = True
+    package_name: str, python_versions: list[str] | None = None, use_cache: bool = True
 ) -> dict[str, Any]:
     """Get all Python versions compatible with a package.
 
@@ -242,7 +245,9 @@ async def get_package_compatible_python_versions(
     """
     try:
         logger.info(f"MCP tool: Getting compatible Python versions for {package_name}")
-        result = await get_compatible_python_versions(package_name, python_versions, use_cache)
+        result = await get_compatible_python_versions(
+            package_name, python_versions, use_cache
+        )
         logger.info(f"Compatible versions analysis completed for {package_name}")
         return result
     except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
@@ -250,14 +255,16 @@ async def get_package_compatible_python_versions(
         return {
             "error": str(e),
             "error_type": type(e).__name__,
-            "package_name": package_name
+            "package_name": package_name,
         }
     except Exception as e:
-        logger.error(f"Unexpected error getting compatible versions for {package_name}: {e}")
+        logger.error(
+            f"Unexpected error getting compatible versions for {package_name}: {e}"
+        )
         return {
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
-            "package_name": package_name
+            "package_name": package_name,
         }
 
 
@@ -266,7 +273,7 @@ async def get_package_compatible_python_versions(
     "--log-level",
     default="INFO",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-    help="Logging level"
+    help="Logging level",
 )
 def main(log_level: str) -> None:
     """Start the PyPI Query MCP Server."""

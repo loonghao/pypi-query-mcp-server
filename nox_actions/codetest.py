@@ -12,11 +12,14 @@ def pytest(session: nox.Session) -> None:
     session.install(".")
     session.install("pytest", "pytest-cov", "pytest-mock", "pytest-asyncio")
     test_root = os.path.join(THIS_ROOT, "tests")
-    session.run("pytest", f"--cov={PACKAGE_NAME}",
-                "--cov-report=xml:coverage.xml",
-                "--cov-report=term-missing",
-                f"--rootdir={test_root}",
-                env={"PYTHONPATH": THIS_ROOT.as_posix()})
+    session.run(
+        "pytest",
+        f"--cov={PACKAGE_NAME}",
+        "--cov-report=xml:coverage.xml",
+        "--cov-report=term-missing",
+        f"--rootdir={test_root}",
+        env={"PYTHONPATH": THIS_ROOT.as_posix()},
+    )
 
 
 def mypy(session: nox.Session) -> None:

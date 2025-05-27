@@ -47,7 +47,7 @@ def test_version_compatibility():
     classifiers = [
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: Implementation :: CPython"
+        "Programming Language :: Python :: Implementation :: CPython",
     ]
 
     versions = compat.extract_python_versions_from_classifiers(classifiers)

@@ -60,8 +60,29 @@ Add to your Claude Desktop configuration file:
       "command": "uvx",
       "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
       "env": {
-        "PYPI_INDEX_URL": "https://pypi.org/simple/",
-        "CACHE_TTL": "3600"
+        "PYPI_INDEX_URL": "https://pypi.org/pypi",
+        "PYPI_INDEX_URLS": "https://mirrors.aliyun.com/pypi/simple/,https://pypi.tuna.tsinghua.edu.cn/simple/",
+        "PYPI_CACHE_TTL": "3600",
+        "PYPI_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+#### With Private Repository
+```json
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/pypi",
+        "PYPI_PRIVATE_PYPI_URL": "https://private.pypi.company.com",
+        "PYPI_PRIVATE_PYPI_USERNAME": "your_username",
+        "PYPI_PRIVATE_PYPI_PASSWORD": "your_password",
+        "PYPI_CACHE_TTL": "3600"
       }
     }
   }
@@ -127,11 +148,38 @@ Add to your Windsurf MCP configuration (`~/.codeium/windsurf/mcp_config.json`):
 
 ### Environment Variables
 
-- `PYPI_INDEX_URL`: PyPI index URL (default: https://pypi.org/simple/)
-- `CACHE_TTL`: Cache time-to-live in seconds (default: 3600)
-- `PRIVATE_PYPI_URL`: Private PyPI repository URL (optional)
-- `PRIVATE_PYPI_USERNAME`: Private PyPI username (optional)
-- `PRIVATE_PYPI_PASSWORD`: Private PyPI password (optional)
+#### Basic Configuration
+- `PYPI_INDEX_URL`: Primary PyPI index URL (default: https://pypi.org/pypi)
+- `PYPI_CACHE_TTL`: Cache time-to-live in seconds (default: 3600)
+- `PYPI_LOG_LEVEL`: Logging level (default: INFO)
+- `PYPI_REQUEST_TIMEOUT`: HTTP request timeout in seconds (default: 30.0)
+
+#### Multiple Mirror Sources Support
+- `PYPI_INDEX_URLS`: Additional PyPI index URLs (comma-separated, optional)
+- `PYPI_EXTRA_INDEX_URLS`: Extra PyPI index URLs for fallback (comma-separated, optional)
+
+#### Private Repository Support
+- `PYPI_PRIVATE_PYPI_URL`: Private PyPI repository URL (optional)
+- `PYPI_PRIVATE_PYPI_USERNAME`: Private PyPI username (optional)
+- `PYPI_PRIVATE_PYPI_PASSWORD`: Private PyPI password (optional)
+
+#### Advanced Dependency Analysis
+- `PYPI_DEPENDENCY_MAX_DEPTH`: Maximum depth for recursive dependency analysis (default: 5)
+- `PYPI_DEPENDENCY_MAX_CONCURRENT`: Maximum concurrent dependency queries (default: 10)
+- `PYPI_ENABLE_SECURITY_ANALYSIS`: Enable security vulnerability analysis (default: false)
+
+#### Example Configuration
+```bash
+# Use multiple mirror sources for better availability
+export PYPI_INDEX_URL="https://pypi.org/pypi"
+export PYPI_INDEX_URLS="https://mirrors.aliyun.com/pypi/simple/,https://pypi.tuna.tsinghua.edu.cn/simple/"
+export PYPI_EXTRA_INDEX_URLS="https://test.pypi.org/simple/"
+
+# Private repository configuration
+export PYPI_PRIVATE_PYPI_URL="https://private.pypi.company.com"
+export PYPI_PRIVATE_PYPI_USERNAME="your_username"
+export PYPI_PRIVATE_PYPI_PASSWORD="your_password"
+```
 
 ## Available MCP Tools
 

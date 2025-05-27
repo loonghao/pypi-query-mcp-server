@@ -4,8 +4,14 @@
       "command": "uvx",
       "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
       "env": {
-        "PYPI_INDEX_URL": "https://pypi.org/simple/",
-        "CACHE_TTL": "3600"
+        "PYPI_INDEX_URL": "https://pypi.org/pypi",
+        "PYPI_INDEX_URLS": "https://mirrors.aliyun.com/pypi/simple/,https://pypi.tuna.tsinghua.edu.cn/simple/",
+        "PYPI_EXTRA_INDEX_URLS": "https://test.pypi.org/simple/",
+        "PYPI_CACHE_TTL": "3600",
+        "PYPI_LOG_LEVEL": "INFO",
+        "PYPI_REQUEST_TIMEOUT": "30.0",
+        "PYPI_DEPENDENCY_MAX_DEPTH": "5",
+        "PYPI_DEPENDENCY_MAX_CONCURRENT": "10"
       }
     }
   }

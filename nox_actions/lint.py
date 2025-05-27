@@ -15,4 +15,9 @@ def lint_fix(session: nox.Session) -> None:
     session.run("ruff", "check", "--fix")
     session.run("isort", ".")
     session.run("pre-commit", "run", "--all-files")
-    session.run("autoflake", "--in-place", "--remove-all-unused-imports", "--remove-unused-variables")
+    session.run(
+        "autoflake",
+        "--in-place",
+        "--remove-all-unused-imports",
+        "--remove-unused-variables",
+    )

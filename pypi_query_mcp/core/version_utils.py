@@ -45,7 +45,9 @@ class VersionCompatibility:
             logger.warning(f"Failed to parse requires_python '{requires_python}': {e}")
             return None
 
-    def extract_python_versions_from_classifiers(self, classifiers: list[str]) -> set[str]:
+    def extract_python_versions_from_classifiers(
+        self, classifiers: list[str]
+    ) -> set[str]:
         """Extract Python version information from classifiers.
 
         Args:
@@ -87,7 +89,7 @@ class VersionCompatibility:
         self,
         target_version: str,
         requires_python: str | None = None,
-        classifiers: list[str] | None = None
+        classifiers: list[str] | None = None,
     ) -> dict[str, Any]:
         """Check if a target Python version is compatible with package requirements.
 
@@ -105,7 +107,7 @@ class VersionCompatibility:
             "compatibility_source": None,
             "details": {},
             "warnings": [],
-            "suggestions": []
+            "suggestions": [],
         }
 
         try:
@@ -119,15 +121,17 @@ class VersionCompatibility:
             spec_set = self.parse_requires_python(requires_python)
             if spec_set:
                 is_compatible = target_ver in spec_set
-                result.update({
-                    "is_compatible": is_compatible,
-                    "compatibility_source": "requires_python",
-                    "details": {
-                        "requires_python": requires_python,
-                        "parsed_spec": str(spec_set),
-                        "check_result": is_compatible
+                result.update(
+                    {
+                        "is_compatible": is_compatible,
+                        "compatibility_source": "requires_python",
+                        "details": {
+                            "requires_python": requires_python,
+                            "parsed_spec": str(spec_set),
+                            "check_result": is_compatible,
+                        },
                     }
-                })
+                )
 
                 if not is_compatible:
                     result["suggestions"].append(
@@ -139,7 +143,9 @@ class VersionCompatibility:
 
         # Fall back to classifiers if no requires_python
         if classifiers:
-            supported_versions = self.extract_python_versions_from_classifiers(classifiers)
+            supported_versions = self.extract_python_versions_from_classifiers(
+                classifiers
+            )
             implementations = self.extract_python_implementations(classifiers)
 
             if supported_versions:
@@ -148,21 +154,23 @@ class VersionCompatibility:
                 target_major = str(target_ver.major)
 
                 is_compatible = (
-                    target_version in supported_versions or
-                    target_major_minor in supported_versions or
-                    target_major in supported_versions
+                    target_version in supported_versions
+                    or target_major_minor in supported_versions
+                    or target_major in supported_versions
                 )
 
-                result.update({
-                    "is_compatible": is_compatible,
-                    "compatibility_source": "classifiers",
-                    "details": {
-                        "supported_versions": sorted(supported_versions),
-                        "implementations": sorted(implementations),
-                        "target_major_minor": target_major_minor,
-                        "check_result": is_compatible
+                result.update(
+                    {
+                        "is_compatible": is_compatible,
+                        "compatibility_source": "classifiers",
+                        "details": {
+                            "supported_versions": sorted(supported_versions),
+                            "implementations": sorted(implementations),
+                            "target_major_minor": target_major_minor,
+                            "check_result": is_compatible,
+                        },
                     }
-                })
+                )
 
                 if not is_compatible:
                     result["suggestions"].append(
@@ -186,7 +194,7 @@ class VersionCompatibility:
         self,
         requires_python: str | None = None,
         classifiers: list[str] | None = None,
-        available_pythons: list[str] | None = None
+        available_pythons: list[str] | None = None,
     ) -> dict[str, Any]:
         """Get list of compatible Python versions for a package.
 
@@ -200,9 +208,7 @@ class VersionCompatibility:
         """
         if available_pythons is None:
             # Default Python versions to check
-            available_pythons = [
-                "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"
-            ]
+            available_pythons = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
         compatible = []
         incompatible = []
@@ -213,28 +219,34 @@ class VersionCompatibility:
             )
 
             if result["is_compatible"]:
-                compatible.append({
-                    "version": python_version,
-                    "source": result["compatibility_source"]
-                })
+                compatible.append(
+                    {
+                        "version": python_version,
+                        "source": result["compatibility_source"],
+                    }
+                )
             else:
-                incompatible.append({
-                    "version": python_version,
-                    "reason": result["suggestions"][0] if result["suggestions"] else "Unknown"
-                })
+                incompatible.append(
+                    {
+                        "version": python_version,
+                        "reason": result["suggestions"][0]
+                        if result["suggestions"]
+                        else "Unknown",
+                    }
+                )
 
         return {
             "compatible_versions": compatible,
             "incompatible_versions": incompatible,
             "total_checked": len(available_pythons),
-            "compatibility_rate": len(compatible) / len(available_pythons) if available_pythons else 0,
-            "recommendations": self._generate_recommendations(compatible, incompatible)
+            "compatibility_rate": len(compatible) / len(available_pythons)
+            if available_pythons
+            else 0,
+            "recommendations": self._generate_recommendations(compatible, incompatible),
         }
 
     def _generate_recommendations(
-        self,
-        compatible: list[dict[str, Any]],
-        incompatible: list[dict[str, Any]]
+        self, compatible: list[dict[str, Any]], incompatible: list[dict[str, Any]]
     ) -> list[str]:
         """Generate recommendations based on compatibility results.
 

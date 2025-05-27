@@ -99,6 +99,7 @@ class PyPIClient:
     def _is_cache_valid(self, cache_entry: dict[str, Any]) -> bool:
         """Check if cache entry is still valid."""
         import time
+
         return time.time() - cache_entry.get("timestamp", 0) < self._cache_ttl
 
     async def _make_request(self, url: str) -> dict[str, Any]:
@@ -140,7 +141,7 @@ class PyPIClient:
                 else:
                     raise PyPIServerError(
                         response.status_code,
-                        f"Unexpected status code: {response.status_code}"
+                        f"Unexpected status code: {response.status_code}",
                     )
 
             except httpx.TimeoutException as e:
@@ -155,12 +156,16 @@ class PyPIClient:
 
             # Wait before retry (except on last attempt)
             if attempt < self.max_retries:
-                await asyncio.sleep(self.retry_delay * (2 ** attempt))  # Exponential backoff
+                await asyncio.sleep(
+                    self.retry_delay * (2**attempt)
+                )  # Exponential backoff
 
         # If we get here, all retries failed
         raise last_exception
 
-    async def get_package_info(self, package_name: str, use_cache: bool = True) -> dict[str, Any]:
+    async def get_package_info(
+        self, package_name: str, use_cache: bool = True
+    ) -> dict[str, Any]:
         """Get comprehensive package information from PyPI.
 
         Args:
@@ -194,10 +199,8 @@ class PyPIClient:
 
             # Cache the result
             import time
-            self._cache[cache_key] = {
-                "data": data,
-                "timestamp": time.time()
-            }
+
+            self._cache[cache_key] = {"data": data, "timestamp": time.time()}
 
             return data
 
@@ -205,7 +208,9 @@ class PyPIClient:
             logger.error(f"Failed to fetch package info for {normalized_name}: {e}")
             raise
 
-    async def get_package_versions(self, package_name: str, use_cache: bool = True) -> list[str]:
+    async def get_package_versions(
+        self, package_name: str, use_cache: bool = True
+    ) -> list[str]:
         """Get list of available versions for a package.
 
         Args:
@@ -219,7 +224,9 @@ class PyPIClient:
         releases = package_info.get("releases", {})
         return list(releases.keys())
 
-    async def get_latest_version(self, package_name: str, use_cache: bool = True) -> str:
+    async def get_latest_version(
+        self, package_name: str, use_cache: bool = True
+    ) -> str:
         """Get the latest version of a package.
 
         Args:

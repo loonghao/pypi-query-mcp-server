@@ -19,7 +19,7 @@ def sample_package_data():
             "requires_dist": [
                 "requests>=2.25.0",
                 "click>=8.0.0",
-                "pytest>=6.0.0; extra == 'test'"
+                "pytest>=6.0.0; extra == 'test'",
             ],
             "classifiers": [
                 "Development Status :: 4 - Beta",
@@ -30,30 +30,30 @@ def sample_package_data():
                 "Programming Language :: Python :: 3.9",
                 "Programming Language :: Python :: 3.10",
                 "Programming Language :: Python :: 3.11",
-                "Programming Language :: Python :: Implementation :: CPython"
-            ]
+                "Programming Language :: Python :: Implementation :: CPython",
+            ],
         },
         "releases": {
             "1.0.0": [
                 {
                     "filename": "test_package-1.0.0-py3-none-any.whl",
                     "packagetype": "bdist_wheel",
-                    "python_version": "py3"
+                    "python_version": "py3",
                 },
                 {
                     "filename": "test-package-1.0.0.tar.gz",
                     "packagetype": "sdist",
-                    "python_version": "source"
-                }
+                    "python_version": "source",
+                },
             ],
             "0.9.0": [
                 {
                     "filename": "test-package-0.9.0.tar.gz",
                     "packagetype": "sdist",
-                    "python_version": "source"
+                    "python_version": "source",
                 }
-            ]
-        }
+            ],
+        },
     }
 
 

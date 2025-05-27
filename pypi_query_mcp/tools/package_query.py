@@ -24,7 +24,9 @@ def format_package_info(package_data: dict[str, Any]) -> dict[str, Any]:
         "name": info.get("name", ""),
         "version": info.get("version", ""),
         "summary": info.get("summary", ""),
-        "description": info.get("description", "")[:500] + "..." if len(info.get("description", "")) > 500 else info.get("description", ""),
+        "description": info.get("description", "")[:500] + "..."
+        if len(info.get("description", "")) > 500
+        else info.get("description", ""),
         "author": info.get("author", ""),
         "author_email": info.get("author_email", ""),
         "maintainer": info.get("maintainer", ""),
@@ -53,7 +55,13 @@ def format_package_info(package_data: dict[str, Any]) -> dict[str, Any]:
             formatted["download_info"] = {
                 "files_count": len(urls),
                 "file_types": list({url.get("packagetype", "") for url in urls}),
-                "python_versions": list({url.get("python_version", "") for url in urls if url.get("python_version")}),
+                "python_versions": list(
+                    {
+                        url.get("python_version", "")
+                        for url in urls
+                        if url.get("python_version")
+                    }
+                ),
             }
 
     return formatted
@@ -83,11 +91,16 @@ def format_version_info(package_data: dict[str, Any]) -> dict[str, Any]:
         "version_details": {
             version: {
                 "release_count": len(releases[version]),
-                "has_wheel": any(file.get("packagetype") == "bdist_wheel" for file in releases[version]),
-                "has_source": any(file.get("packagetype") == "sdist" for file in releases[version]),
+                "has_wheel": any(
+                    file.get("packagetype") == "bdist_wheel"
+                    for file in releases[version]
+                ),
+                "has_source": any(
+                    file.get("packagetype") == "sdist" for file in releases[version]
+                ),
             }
             for version in sorted_versions[:10]  # Details for last 10 versions
-        }
+        },
     }
 
 
@@ -120,7 +133,7 @@ def format_dependency_info(package_data: dict[str, Any]) -> dict[str, Any]:
             extra_part = parts[1] if len(parts) > 1 else ""
 
             if "extra ==" in extra_part:
-                extra_name = extra_part.split("extra ==")[1].strip().strip('"\'')
+                extra_name = extra_part.split("extra ==")[1].strip().strip("\"'")
                 if extra_name not in optional_deps:
                     optional_deps[extra_name] = []
                 optional_deps[extra_name].append(dep_name)
@@ -142,7 +155,7 @@ def format_dependency_info(package_data: dict[str, Any]) -> dict[str, Any]:
             "dev_count": len(dev_deps),
             "optional_groups": len(optional_deps),
             "total_optional": sum(len(deps) for deps in optional_deps.values()),
-        }
+        },
     }
 
 
@@ -208,7 +221,9 @@ async def query_package_versions(package_name: str) -> dict[str, Any]:
         raise NetworkError(f"Failed to query package versions: {e}", e) from e
 
 
-async def query_package_dependencies(package_name: str, version: str | None = None) -> dict[str, Any]:
+async def query_package_dependencies(
+    package_name: str, version: str | None = None
+) -> dict[str, Any]:
     """Query package dependency information from PyPI.
 
     Args:
@@ -226,8 +241,10 @@ async def query_package_dependencies(package_name: str, version: str | None = No
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
 
-    logger.info(f"Querying dependencies for package: {package_name}" +
-                (f" version {version}" if version else " (latest)"))
+    logger.info(
+        f"Querying dependencies for package: {package_name}"
+        + (f" version {version}" if version else " (latest)")
+    )
 
     try:
         async with PyPIClient() as client:
@@ -236,8 +253,10 @@ async def query_package_dependencies(package_name: str, version: str | None = No
             # TODO: In future, support querying specific version dependencies
             # For now, we return dependencies for the latest version
             if version and version != package_data.get("info", {}).get("version"):
-                logger.warning(f"Specific version {version} requested but not implemented yet. "
-                             f"Returning dependencies for latest version.")
+                logger.warning(
+                    f"Specific version {version} requested but not implemented yet. "
+                    f"Returning dependencies for latest version."
+                )
 
             return format_dependency_info(package_data)
     except PyPIError:
