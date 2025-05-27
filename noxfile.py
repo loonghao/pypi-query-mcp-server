@@ -5,18 +5,14 @@ import sys
 # Import third-party modules
 import nox
 
-
 ROOT = os.path.dirname(__file__)
 
 # Ensure pypi_query_mcp is importable.
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
-# Import third-party modules
-from nox_actions import codetest  # noqa: E402
-from nox_actions import lint  # noqa: E402
-from nox_actions import release  # noqa: E402
-
+# Import local modules (after sys.path setup)
+from nox_actions import codetest, lint, release  # noqa: E402
 
 # Configure nox sessions
 nox.session(lint.lint, name="lint")
