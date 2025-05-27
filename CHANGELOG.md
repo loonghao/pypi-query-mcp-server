@@ -1,3 +1,9 @@
+## v0.5.0 (2025-05-27)
+
+### Feat
+
+- add PyPI package download statistics and popularity analysis tools
+
 ## v0.4.0 (2025-05-27)
 
 ### Feat
