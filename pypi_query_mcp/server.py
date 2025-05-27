@@ -11,6 +11,9 @@ from .tools import (
     check_python_compatibility,
     download_package_with_dependencies,
     get_compatible_python_versions,
+    get_package_download_stats,
+    get_package_download_trends,
+    get_top_packages_by_downloads,
     query_package_dependencies,
     query_package_info,
     query_package_versions,
@@ -404,6 +407,149 @@ async def download_package(
             "error_type": "UnexpectedError",
             "package_name": package_name,
             "download_dir": download_dir,
+        }
+
+
+@mcp.tool()
+async def get_download_statistics(
+    package_name: str, period: str = "month", use_cache: bool = True
+) -> dict[str, Any]:
+    """Get download statistics for a PyPI package.
+
+    This tool retrieves comprehensive download statistics for a Python package,
+    including recent download counts, trends, and analysis.
+
+    Args:
+        package_name: The name of the PyPI package to analyze (e.g., 'requests', 'numpy')
+        period: Time period for recent downloads ('day', 'week', 'month', default: 'month')
+        use_cache: Whether to use cached data for faster responses (default: True)
+
+    Returns:
+        Dictionary containing download statistics including:
+        - Recent download counts (last day/week/month)
+        - Package metadata and repository information
+        - Download trends and growth analysis
+        - Data source and timestamp information
+
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting download statistics for {package_name} (period: {period})")
+        result = await get_package_download_stats(package_name, period, use_cache)
+        logger.info(f"Successfully retrieved download statistics for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error getting download statistics for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "period": period,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error getting download statistics for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "period": period,
+        }
+
+
+@mcp.tool()
+async def get_download_trends(
+    package_name: str, include_mirrors: bool = False, use_cache: bool = True
+) -> dict[str, Any]:
+    """Get download trends and time series for a PyPI package.
+
+    This tool retrieves detailed download trends and time series data for a Python package,
+    providing insights into download patterns over the last 180 days.
+
+    Args:
+        package_name: The name of the PyPI package to analyze (e.g., 'django', 'flask')
+        include_mirrors: Whether to include mirror downloads in analysis (default: False)
+        use_cache: Whether to use cached data for faster responses (default: True)
+
+    Returns:
+        Dictionary containing download trends including:
+        - Time series data for the last 180 days
+        - Trend analysis (increasing/decreasing/stable)
+        - Peak download periods and statistics
+        - Average daily downloads and growth indicators
+
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(
+            f"MCP tool: Getting download trends for {package_name} "
+            f"(include_mirrors: {include_mirrors})"
+        )
+        result = await get_package_download_trends(package_name, include_mirrors, use_cache)
+        logger.info(f"Successfully retrieved download trends for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error getting download trends for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "include_mirrors": include_mirrors,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error getting download trends for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "include_mirrors": include_mirrors,
+        }
+
+
+@mcp.tool()
+async def get_top_downloaded_packages(
+    period: str = "month", limit: int = 20
+) -> dict[str, Any]:
+    """Get the most downloaded PyPI packages.
+
+    This tool retrieves a list of the most popular Python packages by download count,
+    helping you discover trending and widely-used packages in the Python ecosystem.
+
+    Args:
+        period: Time period for download ranking ('day', 'week', 'month', default: 'month')
+        limit: Maximum number of packages to return (default: 20, max: 50)
+
+    Returns:
+        Dictionary containing top packages information including:
+        - Ranked list of packages with download counts
+        - Package metadata and repository links
+        - Period and ranking information
+        - Data source and limitations
+
+    Note:
+        Due to API limitations, this tool provides results based on known popular packages.
+        For comprehensive data analysis, consider using Google BigQuery with PyPI datasets.
+    """
+    try:
+        # Limit the maximum number of packages to prevent excessive API calls
+        actual_limit = min(limit, 50)
+
+        logger.info(f"MCP tool: Getting top {actual_limit} packages for period: {period}")
+        result = await get_top_packages_by_downloads(period, actual_limit)
+        logger.info(f"Successfully retrieved top packages list")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting top packages: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "period": period,
+            "limit": limit,
         }
 
 

@@ -10,6 +10,8 @@ A Model Context Protocol (MCP) server for querying PyPI package information, dep
 - 🐍 Python version compatibility checking
 - 🔍 **Advanced dependency analysis and recursive resolution**
 - 📥 **Package download with dependency collection**
+- 📊 **Download statistics and popularity analysis**
+- 🏆 **Top packages ranking and trends**
 - 🏢 Private PyPI repository support
 - ⚡ Fast async operations with caching
 - 🛠️ Easy integration with MCP clients
@@ -199,6 +201,11 @@ The server provides the following MCP tools:
 6. **resolve_dependencies** - Recursively resolve all package dependencies with detailed analysis
 7. **download_package** - Download package and all dependencies to local directory
 
+### Download Statistics & Popularity
+8. **get_download_statistics** - Get comprehensive download statistics for any package
+9. **get_download_trends** - Analyze download trends and time series data (last 180 days)
+10. **get_top_downloaded_packages** - Get the most popular packages by download count
+
 ## Usage Examples
 
 Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), you can ask questions like:
@@ -220,6 +227,13 @@ Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), yo
 - "Download the requests package with all dependencies to ./downloads folder"
 - "Collect all packages needed for Django development"
 
+### Download Statistics & Popularity Analysis
+- "What are the download statistics for the requests package this month?"
+- "Show me the download trends for numpy over the last 180 days"
+- "What are the top 10 most downloaded Python packages today?"
+- "Compare the popularity of Django vs Flask vs FastAPI"
+- "Which web framework has the highest download count this week?"
+
 ### Example Conversations
 
 **User**: "Check if Django 4.2 is compatible with Python 3.9"
@@ -234,6 +248,12 @@ Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), yo
 
 *[Uses get_package_dependencies tool]*
 
+**User**: "Show me the download statistics for the requests package and tell me which is more popular: requests or urllib3?"
+
+**AI Assistant**: I'll get the download statistics for both packages and compare their popularity.
+
+*[Uses get_download_statistics tool for both packages]*
+
 ### Programmatic Usage
 
 ```python
@@ -247,6 +267,18 @@ result = await mcp_client.call_tool("check_package_python_compatibility", {
 info = await mcp_client.call_tool("get_package_info", {
     "package_name": "requests"
 })
+
+# Example: Get download statistics
+stats = await mcp_client.call_tool("get_download_statistics", {
+    "package_name": "numpy",
+    "period": "month"
+})
+
+# Example: Get top downloaded packages
+top_packages = await mcp_client.call_tool("get_top_downloaded_packages", {
+    "period": "week",
+    "limit": 10
+})
 ```
 
 ## Development Status
@@ -258,9 +290,12 @@ Current implementation status:
 - ✅ PyPI API client with caching
 - ✅ MCP tools implementation (package info, versions, dependencies)
 - ✅ Python version compatibility checking
+- ✅ Advanced dependency analysis and recursive resolution
+- ✅ Package download with dependency collection
+- ✅ **Download statistics and popularity analysis**
+- ✅ **Top packages ranking and trends**
 - ✅ CI/CD pipeline with multi-platform testing
 - ⏳ Private repository support (planned)
-- ⏳ Advanced dependency analysis (planned)
 
 ## Contributing
 
