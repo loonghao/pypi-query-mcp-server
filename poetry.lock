@@ -275,22 +275,27 @@ test = ["pytest (>=6)"]
 
 [[package]]
 name = "fastmcp"
-version = "0.2.0"
+version = "0.4.1"
 description = "A more ergonomic interface for MCP servers"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "fastmcp-0.2.0-py3-none-any.whl", hash = "sha256:ba6c53a6e5d7415992f6c0940fb5626c864ca8c2c310abf0e8f0951142aee3d9"},
-    {file = "fastmcp-0.2.0.tar.gz", hash = "sha256:41a7ac4dff38abfb7b695cdddf551908e54ae36f9bd761d49cb1945ccc106f61"},
+    {file = "fastmcp-0.4.1-py3-none-any.whl", hash = "sha256:664b42c376fb89ec90a50c9433f5a1f4d24f36696d6c41b024b427ae545f9619"},
+    {file = "fastmcp-0.4.1.tar.gz", hash = "sha256:713ad3b8e4e04841c9e2f3ca022b053adb89a286ceffad0d69ae7b56f31cbe64"},
 ]
 
 [package.dependencies]
 httpx = ">=0.26.0"
-mcp = ">=1.0.0"
-pydantic = ">=2.5.3"
+mcp = ">=1.0.0,<2.0.0"
+pydantic = ">=2.5.3,<3.0.0"
 pydantic-settings = ">=2.6.1"
+python-dotenv = ">=1.0.1"
 typer = ">=0.9.0"
+
+[package.extras]
+dev = ["copychat (>=0.5.2)", "ipython (>=8.12.3)", "pdbpp (>=0.10.3)", "pre-commit", "pyright (>=1.1.389)", "pytest (>=8.3.3)", "pytest-asyncio (>=0.23.5)", "pytest-flakefinder", "pytest-xdist (>=3.6.1)", "ruff"]
+tests = ["pre-commit", "pyright (>=1.1.389)", "pytest (>=8.3.3)", "pytest-asyncio (>=0.23.5)", "pytest-flakefinder", "pytest-xdist (>=3.6.1)", "ruff"]
 
 [[package]]
 name = "filelock"
@@ -1173,4 +1178,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "ea37103b1fc35068a6bd9959f2498acd8224fb4e849dbaf3a4c41779163bb040"
+content-hash = "4d02b58d518bc2b6e25e0f58e76cbd5f426214c47f9fd6186201a05406027517"
