@@ -1,10 +1,14 @@
 """Tests for dependency resolver functionality."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from pypi_query_mcp.tools.dependency_resolver import DependencyResolver, resolve_package_dependencies
+import pytest
+
 from pypi_query_mcp.core.exceptions import InvalidPackageNameError, PackageNotFoundError
+from pypi_query_mcp.tools.dependency_resolver import (
+    DependencyResolver,
+    resolve_package_dependencies,
+)
 
 
 class TestDependencyResolver:
@@ -71,7 +75,7 @@ class TestDependencyResolver:
             mock_client.get_package_info.return_value = mock_package_data
 
             result = await resolver.resolve_dependencies(
-                "test-package", 
+                "test-package",
                 python_version="3.11"
             )
 

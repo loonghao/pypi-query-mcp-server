@@ -1,13 +1,15 @@
 """Dependency resolution tools for PyPI packages."""
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Set
-from packaging.requirements import Requirement
+from typing import Any
 
 from ..core import PyPIClient, PyPIError
 from ..core.dependency_parser import DependencyParser
-from ..core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
+from ..core.exceptions import (
+    InvalidPackageNameError,
+    NetworkError,
+    PackageNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +20,16 @@ class DependencyResolver:
     def __init__(self, max_depth: int = 10):
         self.max_depth = max_depth
         self.parser = DependencyParser()
-        self.resolved_cache: Dict[str, Dict[str, Any]] = {}
+        self.resolved_cache: dict[str, dict[str, Any]] = {}
 
     async def resolve_dependencies(
         self,
         package_name: str,
-        python_version: Optional[str] = None,
-        include_extras: Optional[List[str]] = None,
+        python_version: str | None = None,
+        include_extras: list[str] | None = None,
         include_dev: bool = False,
-        max_depth: Optional[int] = None
-    ) -> Dict[str, Any]:
+        max_depth: int | None = None
+    ) -> dict[str, Any]:
         """Resolve all dependencies for a package recursively.
 
         Args:
@@ -49,7 +51,7 @@ class DependencyResolver:
         logger.info(f"Resolving dependencies for {package_name} (Python {python_version})")
 
         # Track visited packages to avoid circular dependencies
-        visited: Set[str] = set()
+        visited: set[str] = set()
         dependency_tree = {}
 
         try:
@@ -90,11 +92,11 @@ class DependencyResolver:
     async def _resolve_recursive(
         self,
         package_name: str,
-        python_version: Optional[str],
-        include_extras: List[str],
+        python_version: str | None,
+        include_extras: list[str],
         include_dev: bool,
-        visited: Set[str],
-        dependency_tree: Dict[str, Any],
+        visited: set[str],
+        dependency_tree: dict[str, Any],
         current_depth: int,
         max_depth: int
     ) -> None:
@@ -188,7 +190,7 @@ class DependencyResolver:
             logger.error(f"Error resolving {package_name}: {e}")
             # Continue with other dependencies
 
-    def _generate_dependency_summary(self, dependency_tree: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_dependency_summary(self, dependency_tree: dict[str, Any]) -> dict[str, Any]:
         """Generate summary statistics for the dependency tree."""
 
         total_packages = len(dependency_tree)
@@ -218,11 +220,11 @@ class DependencyResolver:
 
 async def resolve_package_dependencies(
     package_name: str,
-    python_version: Optional[str] = None,
-    include_extras: Optional[List[str]] = None,
+    python_version: str | None = None,
+    include_extras: list[str] | None = None,
     include_dev: bool = False,
     max_depth: int = 5
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Resolve package dependencies with comprehensive analysis.
 
     Args:
