@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/simple/",
+        "CACHE_TTL": "3600"
+      }
+    }
+  }
+}
