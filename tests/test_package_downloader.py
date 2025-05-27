@@ -1,13 +1,16 @@
 """Tests for package downloader functionality."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, patch, mock_open
-import tempfile
 import shutil
+import tempfile
+from unittest.mock import AsyncMock, mock_open, patch
 
-from pypi_query_mcp.tools.package_downloader import PackageDownloader, download_package_with_dependencies
-from pypi_query_mcp.core.exceptions import InvalidPackageNameError, PackageNotFoundError
+import pytest
+
+from pypi_query_mcp.core.exceptions import InvalidPackageNameError
+from pypi_query_mcp.tools.package_downloader import (
+    PackageDownloader,
+    download_package_with_dependencies,
+)
 
 
 class TestPackageDownloader:
@@ -218,25 +221,6 @@ class TestPackageDownloader:
     @pytest.mark.asyncio
     async def test_download_package_with_dependencies_function(self, temp_download_dir):
         """Test the standalone download_package_with_dependencies function."""
-        mock_package_data = {
-            "info": {
-                "name": "test-package",
-                "version": "1.0.0",
-                "requires_python": ">=3.8",
-                "requires_dist": []
-            },
-            "releases": {
-                "1.0.0": [
-                    {
-                        "filename": "test_package-1.0.0-py3-none-any.whl",
-                        "url": "https://files.pythonhosted.org/packages/test_package-1.0.0-py3-none-any.whl",
-                        "packagetype": "bdist_wheel",
-                        "md5_digest": "abc123",
-                        "size": 1024
-                    }
-                ]
-            }
-        }
 
         with patch('pypi_query_mcp.tools.package_downloader.PackageDownloader') as mock_downloader_class:
             # Setup downloader mock
