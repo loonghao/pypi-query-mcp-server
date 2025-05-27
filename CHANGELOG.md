@@ -1,3 +1,9 @@
+## v0.3.0 (2025-05-27)
+
+### Feat
+
+- implement comprehensive configuration management system with multi-mirror support
+
 ## v0.2.0 (2025-05-27)
 
 ### Feat
