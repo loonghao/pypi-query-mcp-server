@@ -8,7 +8,7 @@ import nox
 
 ROOT = os.path.dirname(__file__)
 
-# Ensure maya_umbrella is importable.
+# Ensure pypi_query_mcp is importable.
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
@@ -18,7 +18,10 @@ from nox_actions import lint  # noqa: E402
 from nox_actions import release  # noqa: E402
 
 
+# Configure nox sessions
 nox.session(lint.lint, name="lint")
 nox.session(lint.lint_fix, name="lint-fix")
 nox.session(codetest.pytest, name="pytest")
-nox.session(release.build_exe, name="build-exe")
+nox.session(codetest.mypy, name="mypy")
+nox.session(codetest.safety, name="safety")
+nox.session(release.build, name="build")
