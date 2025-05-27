@@ -3,12 +3,7 @@
 import logging
 from typing import Any
 
-from ..core import (
-    InvalidPackageNameError,
-    NetworkError,
-    PyPIClient,
-    PyPIError,
-)
+from ..core import InvalidPackageNameError, NetworkError, PyPIClient, PyPIError
 
 logger = logging.getLogger(__name__)
 

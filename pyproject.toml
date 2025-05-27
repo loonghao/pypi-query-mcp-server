@@ -72,6 +72,12 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["pypi_query_mcp"]
+
 [tool.mypy]
 python_version = "3.10"
 check_untyped_defs = true
