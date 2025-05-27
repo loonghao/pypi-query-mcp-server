@@ -10,6 +10,13 @@ from nox_actions.utils import PACKAGE_NAME
 from nox_actions.utils import THIS_ROOT
 
 
+def build(session: nox.Session) -> None:
+    """Build Python package distributions."""
+    session.install("build", "twine")
+    session.run("python", "-m", "build")
+    session.run("twine", "check", "dist/*")
+
+
 @nox.session(name="build-exe", reuse_venv=True)
 def build_exe(session: nox.Session) -> None:
     parser = argparse.ArgumentParser(prog="nox -s build-exe --release")
