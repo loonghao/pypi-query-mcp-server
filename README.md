@@ -8,7 +8,8 @@ A Model Context Protocol (MCP) server for querying PyPI package information, dep
 
 - 📦 Query PyPI package information (name, version, description, dependencies)
 - 🐍 Python version compatibility checking
-- 🔍 Dependency analysis and resolution
+- 🔍 **Advanced dependency analysis and recursive resolution**
+- 📥 **Package download with dependency collection**
 - 🏢 Private PyPI repository support
 - ⚡ Fast async operations with caching
 - 🛠️ Easy integration with MCP clients
@@ -185,21 +186,39 @@ export PYPI_PRIVATE_PYPI_PASSWORD="your_password"
 
 The server provides the following MCP tools:
 
+### Core Package Information
 1. **get_package_info** - Get comprehensive package information
 2. **get_package_versions** - List all available versions for a package
 3. **get_package_dependencies** - Analyze package dependencies
+
+### Python Compatibility
 4. **check_package_python_compatibility** - Check Python version compatibility
 5. **get_package_compatible_python_versions** - Get all compatible Python versions
+
+### Advanced Dependency Analysis
+6. **resolve_dependencies** - Recursively resolve all package dependencies with detailed analysis
+7. **download_package** - Download package and all dependencies to local directory
 
 ## Usage Examples
 
 Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), you can ask questions like:
 
+### Basic Package Queries
 - "What are the dependencies of Django 4.2?"
 - "Is FastAPI compatible with Python 3.9?"
 - "Show me all versions of requests package"
 - "What Python versions does numpy support?"
 - "Get detailed information about the pandas package"
+
+### Advanced Dependency Analysis
+- "Please help me analyze the complete dependency tree for PySide2 with Python 3.10"
+- "Resolve all dependencies for Django including development dependencies"
+- "What are all the transitive dependencies of FastAPI?"
+
+### Package Download
+- "Please help me download PySide2 and all its dependencies for Python 3.10 to my local machine"
+- "Download the requests package with all dependencies to ./downloads folder"
+- "Collect all packages needed for Django development"
 
 ### Example Conversations
 
