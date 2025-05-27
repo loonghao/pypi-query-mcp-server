@@ -9,10 +9,12 @@ from fastmcp import FastMCP
 from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
 from .tools import (
     check_python_compatibility,
+    download_package_with_dependencies,
     get_compatible_python_versions,
     query_package_dependencies,
     query_package_info,
     query_package_versions,
+    resolve_package_dependencies,
 )
 
 # Configure logging
@@ -265,6 +267,143 @@ async def get_package_compatible_python_versions(
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
             "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def resolve_dependencies(
+    package_name: str,
+    python_version: str | None = None,
+    include_extras: list[str] | None = None,
+    include_dev: bool = False,
+    max_depth: int = 5
+) -> dict[str, Any]:
+    """Resolve all dependencies for a PyPI package recursively.
+
+    This tool performs comprehensive dependency resolution for a Python package,
+    analyzing the complete dependency tree including transitive dependencies.
+
+    Args:
+        package_name: The name of the PyPI package to analyze (e.g., 'pyside2', 'django')
+        python_version: Target Python version for dependency filtering (e.g., '3.10', '3.11')
+        include_extras: List of extra dependency groups to include (e.g., ['dev', 'test'])
+        include_dev: Whether to include development dependencies (default: False)
+        max_depth: Maximum recursion depth for dependency resolution (default: 5)
+
+    Returns:
+        Dictionary containing comprehensive dependency analysis including:
+        - Complete dependency tree with all transitive dependencies
+        - Dependency categorization (runtime, development, extras)
+        - Package metadata for each dependency
+        - Summary statistics and analysis
+
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(
+            f"MCP tool: Resolving dependencies for {package_name} "
+            f"(Python {python_version}, extras: {include_extras})"
+        )
+        result = await resolve_package_dependencies(
+            package_name=package_name,
+            python_version=python_version,
+            include_extras=include_extras,
+            include_dev=include_dev,
+            max_depth=max_depth
+        )
+        logger.info(f"Successfully resolved dependencies for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error resolving dependencies for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "python_version": python_version,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error resolving dependencies for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "python_version": python_version,
+        }
+
+
+@mcp.tool()
+async def download_package(
+    package_name: str,
+    download_dir: str = "./downloads",
+    python_version: str | None = None,
+    include_extras: list[str] | None = None,
+    include_dev: bool = False,
+    prefer_wheel: bool = True,
+    verify_checksums: bool = True,
+    max_depth: int = 5
+) -> dict[str, Any]:
+    """Download a PyPI package and all its dependencies to local directory.
+
+    This tool downloads a Python package and all its dependencies, providing
+    comprehensive package collection for offline installation or analysis.
+
+    Args:
+        package_name: The name of the PyPI package to download (e.g., 'pyside2', 'requests')
+        download_dir: Local directory to download packages to (default: './downloads')
+        python_version: Target Python version for compatibility (e.g., '3.10', '3.11')
+        include_extras: List of extra dependency groups to include (e.g., ['dev', 'test'])
+        include_dev: Whether to include development dependencies (default: False)
+        prefer_wheel: Whether to prefer wheel files over source distributions (default: True)
+        verify_checksums: Whether to verify downloaded file checksums (default: True)
+        max_depth: Maximum dependency resolution depth (default: 5)
+
+    Returns:
+        Dictionary containing download results including:
+        - Download statistics and file information
+        - Dependency resolution results
+        - File verification results
+        - Success/failure summary for each package
+
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(
+            f"MCP tool: Downloading {package_name} and dependencies to {download_dir} "
+            f"(Python {python_version})"
+        )
+        result = await download_package_with_dependencies(
+            package_name=package_name,
+            download_dir=download_dir,
+            python_version=python_version,
+            include_extras=include_extras,
+            include_dev=include_dev,
+            prefer_wheel=prefer_wheel,
+            verify_checksums=verify_checksums,
+            max_depth=max_depth
+        )
+        logger.info(f"Successfully downloaded {package_name} and dependencies")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error downloading {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "download_dir": download_dir,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error downloading {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "download_dir": download_dir,
         }
 
 
