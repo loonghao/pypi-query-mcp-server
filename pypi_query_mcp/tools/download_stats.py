@@ -1,12 +1,11 @@
 """PyPI package download statistics tools."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from ..core.pypi_client import PyPIClient
 from ..core.stats_client import PyPIStatsClient
-from ..core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,7 @@ async def get_package_download_stats(
 
             # Extract download data
             download_data = recent_stats.get("data", {})
-            
+
             # Calculate trends and analysis
             analysis = _analyze_download_stats(download_data)
 
@@ -106,7 +105,7 @@ async def get_package_download_trends(
 
             # Process time series data
             time_series_data = overall_stats.get("data", [])
-            
+
             # Analyze trends
             trend_analysis = _analyze_download_trends(time_series_data, include_mirrors)
 
@@ -153,31 +152,31 @@ async def get_top_packages_by_downloads(
     async with PyPIStatsClient() as stats_client:
         try:
             top_packages = []
-            
+
             # Get download stats for popular packages
             for i, package_name in enumerate(popular_packages[:limit]):
                 try:
                     stats = await stats_client.get_recent_downloads(
                         package_name, period, use_cache=True
                     )
-                    
+
                     download_data = stats.get("data", {})
                     download_count = _extract_download_count(download_data, period)
-                    
+
                     top_packages.append({
                         "rank": i + 1,
                         "package": package_name,
                         "downloads": download_count,
                         "period": period,
                     })
-                    
+
                 except Exception as e:
                     logger.warning(f"Could not get stats for {package_name}: {e}")
                     continue
 
             # Sort by download count (descending)
             top_packages.sort(key=lambda x: x.get("downloads", 0), reverse=True)
-            
+
             # Update ranks after sorting
             for i, package in enumerate(top_packages):
                 package["rank"] = i + 1
@@ -221,7 +220,7 @@ def _analyze_download_stats(download_data: dict[str, Any]) -> dict[str, Any]:
         if period.startswith("last_") and isinstance(count, int):
             analysis["periods_available"].append(period)
             analysis["total_downloads"] += count
-            
+
             if analysis["highest_period"] is None or count > download_data.get(analysis["highest_period"], 0):
                 analysis["highest_period"] = period
 
@@ -232,7 +231,7 @@ def _analyze_download_stats(download_data: dict[str, Any]) -> dict[str, Any]:
 
     if last_day and last_week:
         analysis["growth_indicators"]["daily_vs_weekly"] = round(last_day * 7 / last_week, 2)
-    
+
     if last_week and last_month:
         analysis["growth_indicators"]["weekly_vs_monthly"] = round(last_week * 4 / last_month, 2)
 
@@ -264,7 +263,7 @@ def _analyze_download_trends(time_series_data: list[dict], include_mirrors: bool
     # Filter data based on mirror preference
     category_filter = "with_mirrors" if include_mirrors else "without_mirrors"
     filtered_data = [
-        item for item in time_series_data 
+        item for item in time_series_data
         if item.get("category") == category_filter
     ]
 
@@ -299,7 +298,7 @@ def _analyze_download_trends(time_series_data: list[dict], include_mirrors: bool
         if len(filtered_data) >= 14:
             first_week = sum(item.get("downloads", 0) for item in filtered_data[:7])
             last_week = sum(item.get("downloads", 0) for item in filtered_data[-7:])
-            
+
             if last_week > first_week * 1.1:
                 analysis["trend_direction"] = "increasing"
             elif last_week < first_week * 0.9:
