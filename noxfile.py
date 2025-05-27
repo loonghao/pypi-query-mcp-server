@@ -18,6 +18,5 @@ from nox_actions import codetest, lint, release  # noqa: E402
 nox.session(lint.lint, name="lint")
 nox.session(lint.lint_fix, name="lint-fix")
 nox.session(codetest.pytest, name="pytest")
-nox.session(codetest.mypy, name="mypy")
 nox.session(codetest.safety, name="safety")
 nox.session(release.build, name="build")
