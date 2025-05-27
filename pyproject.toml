@@ -46,6 +46,7 @@ pre-commit = "^3.6.0"
 nox = "^2024.3.2"
 
 [tool.poetry.scripts]
+pypi-query-mcp-server = "pypi_query_mcp.server:main"
 pypi-query-mcp = "pypi_query_mcp.server:main"
 
 [tool.ruff]

@@ -1,5 +1,7 @@
 # PyPI Query MCP Server
 
+[![PyPI version](https://img.shields.io/pypi/v/pypi-query-mcp-server.svg)](https://pypi.org/project/pypi-query-mcp-server/)
+
 A Model Context Protocol (MCP) server for querying PyPI package information, dependencies, and compatibility checking.
 
 ## Features
@@ -11,31 +13,127 @@ A Model Context Protocol (MCP) server for querying PyPI package information, dep
 - ⚡ Fast async operations with caching
 - 🛠️ Easy integration with MCP clients
 
-## Quick Start
+## Installation
 
-### Installation
+### Using uvx (recommended)
 
 ```bash
-# Install from PyPI (coming soon)
-pip install pypi-query-mcp-server
+# Run directly with uvx
+uvx pypi-query-mcp-server
 
-# Or install from source
-git clone https://github.com/loonghao/pypi-query-mcp-server.git
-cd pypi-query-mcp-server
-poetry install
+# Or install and run with specific script
+uvx --from pypi-query-mcp-server pypi-query-mcp
 ```
 
-### Usage
+### Using pip
 
 ```bash
-# Start the MCP server
-pypi-query-mcp
+# Install from PyPI
+pip install pypi-query-mcp-server
 
-# Or run directly with Python
+# Run the server
 python -m pypi_query_mcp.server
 ```
 
-### Available MCP Tools
+### From source
+
+```bash
+git clone https://github.com/loonghao/pypi-query-mcp-server.git
+cd pypi-query-mcp-server
+uv sync
+uv run pypi-query-mcp
+```
+
+## Configuration
+
+### Claude Desktop
+
+Add to your Claude Desktop configuration file:
+
+**MacOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/simple/",
+        "CACHE_TTL": "3600"
+      }
+    }
+  }
+}
+```
+
+### Cline
+
+Add to your Cline MCP settings (`cline_mcp_settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/simple/",
+        "CACHE_TTL": "3600"
+      }
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to your Cursor MCP configuration (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/simple/",
+        "CACHE_TTL": "3600"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to your Windsurf MCP configuration (`~/.codeium/windsurf/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "pypi-query": {
+      "command": "uvx",
+      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "env": {
+        "PYPI_INDEX_URL": "https://pypi.org/simple/",
+        "CACHE_TTL": "3600"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+- `PYPI_INDEX_URL`: PyPI index URL (default: https://pypi.org/simple/)
+- `CACHE_TTL`: Cache time-to-live in seconds (default: 3600)
+- `PRIVATE_PYPI_URL`: Private PyPI repository URL (optional)
+- `PRIVATE_PYPI_USERNAME`: Private PyPI username (optional)
+- `PRIVATE_PYPI_PASSWORD`: Private PyPI password (optional)
+
+## Available MCP Tools
 
 The server provides the following MCP tools:
 
@@ -45,7 +143,31 @@ The server provides the following MCP tools:
 4. **check_package_python_compatibility** - Check Python version compatibility
 5. **get_package_compatible_python_versions** - Get all compatible Python versions
 
-### Example Usage with MCP Client
+## Usage Examples
+
+Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), you can ask questions like:
+
+- "What are the dependencies of Django 4.2?"
+- "Is FastAPI compatible with Python 3.9?"
+- "Show me all versions of requests package"
+- "What Python versions does numpy support?"
+- "Get detailed information about the pandas package"
+
+### Example Conversations
+
+**User**: "Check if Django 4.2 is compatible with Python 3.9"
+
+**AI Assistant**: I'll check Django 4.2's compatibility with Python 3.9 for you.
+
+*[Uses get_package_info and check_package_python_compatibility tools]*
+
+**User**: "What are the main dependencies of FastAPI?"
+
+**AI Assistant**: Let me get the dependency information for FastAPI.
+
+*[Uses get_package_dependencies tool]*
+
+### Programmatic Usage
 
 ```python
 # Example: Check if Django is compatible with Python 3.9
