@@ -541,7 +541,7 @@ async def get_top_downloaded_packages(
 
         logger.info(f"MCP tool: Getting top {actual_limit} packages for period: {period}")
         result = await get_top_packages_by_downloads(period, actual_limit)
-        logger.info(f"Successfully retrieved top packages list")
+        logger.info("Successfully retrieved top packages list")
         return result
     except Exception as e:
         logger.error(f"Error getting top packages: {e}")

@@ -1,17 +1,18 @@
 """Tests for download statistics functionality."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from pypi_query_mcp.core.exceptions import PackageNotFoundError
 from pypi_query_mcp.tools.download_stats import (
-    get_package_download_stats,
-    get_package_download_trends,
-    get_top_packages_by_downloads,
     _analyze_download_stats,
     _analyze_download_trends,
     _extract_download_count,
+    get_package_download_stats,
+    get_package_download_trends,
+    get_top_packages_by_downloads,
 )
-from pypi_query_mcp.core.exceptions import PackageNotFoundError, InvalidPackageNameError
 
 
 class TestDownloadStats:
@@ -43,7 +44,7 @@ class TestDownloadStats:
 
         with patch("pypi_query_mcp.tools.download_stats.PyPIStatsClient") as mock_stats_client, \
              patch("pypi_query_mcp.tools.download_stats.PyPIClient") as mock_pypi_client:
-            
+
             # Setup mocks
             mock_stats_instance = AsyncMock()
             mock_stats_instance.get_recent_downloads.return_value = mock_stats_data
