@@ -23,10 +23,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create FastMCP application
-app = FastMCP("PyPI Query MCP Server")
+mcp = FastMCP("PyPI Query MCP Server")
 
 
-@app.tool()
+@mcp.tool()
 async def get_package_info(package_name: str) -> dict[str, Any]:
     """Query comprehensive information about a PyPI package.
 
@@ -71,7 +71,7 @@ async def get_package_info(package_name: str) -> dict[str, Any]:
         }
 
 
-@app.tool()
+@mcp.tool()
 async def get_package_versions(package_name: str) -> dict[str, Any]:
     """Get version information for a PyPI package.
 
@@ -114,7 +114,7 @@ async def get_package_versions(package_name: str) -> dict[str, Any]:
         }
 
 
-@app.tool()
+@mcp.tool()
 async def get_package_dependencies(package_name: str, version: str | None = None) -> dict[str, Any]:
     """Get dependency information for a PyPI package.
 
@@ -161,7 +161,7 @@ async def get_package_dependencies(package_name: str, version: str | None = None
         }
 
 
-@app.tool()
+@mcp.tool()
 async def check_package_python_compatibility(
     package_name: str,
     target_python_version: str,
@@ -212,7 +212,7 @@ async def check_package_python_compatibility(
         }
 
 
-@app.tool()
+@mcp.tool()
 async def get_package_compatible_python_versions(
     package_name: str,
     python_versions: list[str] | None = None,
@@ -263,32 +263,21 @@ async def get_package_compatible_python_versions(
 
 @click.command()
 @click.option(
-    "--host",
-    default="localhost",
-    help="Host to bind the server to"
-)
-@click.option(
-    "--port",
-    default=8000,
-    type=int,
-    help="Port to bind the server to"
-)
-@click.option(
     "--log-level",
     default="INFO",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     help="Logging level"
 )
-def main(host: str, port: int, log_level: str) -> None:
+def main(log_level: str) -> None:
     """Start the PyPI Query MCP Server."""
     # Set logging level
     logging.getLogger().setLevel(getattr(logging, log_level))
 
-    logger.info(f"Starting PyPI Query MCP Server on {host}:{port}")
+    logger.info("Starting PyPI Query MCP Server")
     logger.info(f"Log level set to: {log_level}")
 
-    # Run the FastMCP server
-    app.run(host=host, port=port)
+    # Run the FastMCP server (uses STDIO transport by default)
+    mcp.run()
 
 
 if __name__ == "__main__":
