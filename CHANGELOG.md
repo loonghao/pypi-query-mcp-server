@@ -1,3 +1,9 @@
+## v0.5.1 (2025-05-27)
+
+### Fix
+
+- **deps**: update dependency fastmcp to v2
+
 ## v0.5.0 (2025-05-27)
 
 ### Feat
