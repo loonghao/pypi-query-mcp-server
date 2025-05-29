@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server for querying PyPI package information, dep
 - 📥 **Package download with dependency collection**
 - 📊 **Download statistics and popularity analysis**
 - 🏆 **Top packages ranking and trends**
+- 🎯 **MCP prompt templates for guided analysis and decision-making**
 - 🏢 Private PyPI repository support
 - ⚡ Fast async operations with caching
 - 🛠️ Easy integration with MCP clients
@@ -206,6 +207,18 @@ The server provides the following MCP tools:
 9. **get_download_trends** - Analyze download trends and time series data (last 180 days)
 10. **get_top_downloaded_packages** - Get the most popular packages by download count
 
+### MCP Prompt Templates
+11. **analyze_package_quality** - Generate comprehensive package quality analysis prompts
+12. **compare_packages** - Generate detailed package comparison prompts
+13. **suggest_alternatives** - Generate prompts for finding package alternatives
+14. **resolve_dependency_conflicts** - Generate prompts for resolving dependency conflicts
+15. **plan_version_upgrade** - Generate prompts for planning package version upgrades
+16. **audit_security_risks** - Generate prompts for security risk auditing
+17. **plan_package_migration** - Generate comprehensive package migration plan prompts
+18. **generate_migration_checklist** - Generate detailed migration checklist prompts
+
+> 📖 **Learn more about prompt templates**: See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for detailed documentation and examples.
+
 ## Usage Examples
 
 Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), you can ask questions like:
@@ -233,6 +246,13 @@ Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), yo
 - "What are the top 10 most downloaded Python packages today?"
 - "Compare the popularity of Django vs Flask vs FastAPI"
 - "Which web framework has the highest download count this week?"
+
+### MCP Prompt Templates
+- "Use the analyze_package_quality prompt to evaluate the requests package"
+- "Generate a comparison prompt for Django vs FastAPI vs Flask for building APIs"
+- "Create a migration plan prompt for moving from Flask to FastAPI"
+- "Help me resolve dependency conflicts with a structured prompt"
+- "Generate a security audit prompt for my production packages"
 
 ### Example Conversations
 
