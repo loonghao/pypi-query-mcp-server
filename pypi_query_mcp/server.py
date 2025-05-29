@@ -8,14 +8,20 @@ from fastmcp import FastMCP
 
 from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
 from .prompts import (
+    analyze_daily_trends,
+    analyze_environment_dependencies,
     analyze_package_quality,
     audit_security_risks,
+    check_outdated_packages,
     compare_packages,
+    find_trending_packages,
     generate_migration_checklist,
+    generate_update_plan,
     plan_package_migration,
     plan_version_upgrade,
     resolve_dependency_conflicts,
     suggest_alternatives,
+    track_package_updates,
 )
 from .tools import (
     check_python_compatibility,
@@ -713,6 +719,177 @@ async def generate_migration_checklist_prompt(
     """Generate a detailed migration checklist prompt."""
     messages = await generate_migration_checklist(migration_type, packages_involved, environment)
     return messages[0].text
+
+
+# Environment Analysis Prompts
+@mcp.prompt()
+async def analyze_environment_dependencies_prompt(
+    environment_type: str = "local",
+    python_version: str | None = None,
+    project_path: str | None = None
+) -> str:
+    """Generate a prompt for analyzing environment dependencies."""
+    # Step 3: Call Prompt generator
+    template = await analyze_environment_dependencies(environment_type, python_version, project_path)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{environment_type}}", environment_type)
+
+    # Handle environment info
+    env_info = f"({environment_type} environment)"
+    if python_version:
+        env_info += f" with Python {python_version}"
+    if project_path:
+        env_info += f" at {project_path}"
+    result = result.replace("{{environment_info}}", env_info)
+
+    # Handle command prefix based on environment
+    command_prefix = "uvx " if environment_type in ["virtual", "uv"] else ""
+    result = result.replace("{{command_prefix}}", command_prefix)
+
+    # Step 7: Return final prompt
+    return result
+
+
+@mcp.prompt()
+async def check_outdated_packages_prompt(
+    package_filter: str | None = None,
+    severity_level: str = "all",
+    include_dev_dependencies: bool = True
+) -> str:
+    """Generate a prompt for checking outdated packages."""
+    # Step 3: Call Prompt generator
+    template = await check_outdated_packages(package_filter, severity_level, include_dev_dependencies)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{severity_level}}", severity_level)
+
+    # Handle filter info
+    if package_filter:
+        filter_info = f" (filtering by: {package_filter})"
+    else:
+        filter_info = ""
+    result = result.replace("{{filter_info}}", filter_info)
+
+    # Handle dev dependencies
+    if include_dev_dependencies:
+        dev_deps_text = " including development dependencies"
+    else:
+        dev_deps_text = " excluding development dependencies"
+    result = result.replace("{{dev_deps_text}}", dev_deps_text)
+
+    # Step 7: Return final prompt
+    return result
+
+
+@mcp.prompt()
+async def generate_update_plan_prompt(
+    update_strategy: str = "balanced",
+    environment_constraints: str | None = None,
+    testing_requirements: str | None = None
+) -> str:
+    """Generate a prompt for creating package update plans."""
+    # Step 3: Call Prompt generator
+    template = await generate_update_plan(update_strategy, environment_constraints, testing_requirements)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{strategy}}", update_strategy)
+
+    # Handle constraints
+    if environment_constraints:
+        constraints_text = f"\n\nEnvironment constraints: {environment_constraints}"
+    else:
+        constraints_text = ""
+    result = result.replace("{{constraints_text}}", constraints_text)
+
+    # Handle testing requirements
+    if testing_requirements:
+        testing_text = f"\n\nTesting requirements: {testing_requirements}"
+    else:
+        testing_text = ""
+    result = result.replace("{{testing_text}}", testing_text)
+
+    # Step 7: Return final prompt
+    return result
+
+
+# Trending Analysis Prompts
+@mcp.prompt()
+async def analyze_daily_trends_prompt(
+    date: str = "today",
+    category: str | None = None,
+    limit: int = 20
+) -> str:
+    """Generate a prompt for analyzing daily PyPI trends."""
+    # Step 3: Call Prompt generator
+    template = await analyze_daily_trends(date, category, limit)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{date}}", date)
+    result = result.replace("{{limit}}", str(limit))
+
+    # Handle category filter
+    if category:
+        category_filter = f" focusing on {category} packages"
+    else:
+        category_filter = ""
+    result = result.replace("{{category_filter}}", category_filter)
+
+    # Step 7: Return final prompt
+    return result
+
+
+@mcp.prompt()
+async def find_trending_packages_prompt(
+    time_period: str = "weekly",
+    trend_type: str = "rising",
+    domain: str | None = None
+) -> str:
+    """Generate a prompt for finding trending packages."""
+    # Step 3: Call Prompt generator
+    template = await find_trending_packages(time_period, trend_type, domain)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{time_period}}", time_period)
+    result = result.replace("{{trend_type}}", trend_type)
+
+    # Handle domain filter
+    if domain:
+        domain_filter = f" in the {domain} domain"
+    else:
+        domain_filter = ""
+    result = result.replace("{{domain_filter}}", domain_filter)
+
+    # Step 7: Return final prompt
+    return result
+
+
+@mcp.prompt()
+async def track_package_updates_prompt(
+    time_range: str = "today",
+    update_type: str = "all",
+    popular_only: bool = False
+) -> str:
+    """Generate a prompt for tracking recent package updates."""
+    # Step 3: Call Prompt generator
+    template = await track_package_updates(time_range, update_type, popular_only)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{time_range}}", time_range)
+    result = result.replace("{{update_type}}", update_type)
+
+    # Handle popularity filter
+    if popular_only:
+        popularity_filter = " (popular packages only)"
+        popularity_description = "Popular packages with >1M downloads"
+    else:
+        popularity_filter = ""
+        popularity_description = "All packages in the ecosystem"
+    result = result.replace("{{popularity_filter}}", popularity_filter)
+    result = result.replace("{{popularity_description}}", popularity_description)
+
+    # Step 7: Return final prompt
+    return result
 
 
 @click.command()

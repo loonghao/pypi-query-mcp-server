@@ -217,6 +217,16 @@ The server provides the following MCP tools:
 17. **plan_package_migration** - Generate comprehensive package migration plan prompts
 18. **generate_migration_checklist** - Generate detailed migration checklist prompts
 
+### Environment Analysis Templates
+19. **analyze_environment_dependencies** - Generate prompts for analyzing current environment dependencies
+20. **check_outdated_packages** - Generate prompts for checking outdated packages with update priorities
+21. **generate_update_plan** - Generate prompts for creating comprehensive package update plans
+
+### Trending Analysis Templates
+22. **analyze_daily_trends** - Generate prompts for analyzing daily PyPI download trends
+23. **find_trending_packages** - Generate prompts for discovering trending packages over time periods
+24. **track_package_updates** - Generate prompts for tracking recent package updates and releases
+
 > 📖 **Learn more about prompt templates**: See [PROMPT_TEMPLATES.md](PROMPT_TEMPLATES.md) for detailed documentation and examples.
 
 ## Usage Examples
@@ -253,6 +263,18 @@ Once configured in your MCP client (Claude Desktop, Cline, Cursor, Windsurf), yo
 - "Create a migration plan prompt for moving from Flask to FastAPI"
 - "Help me resolve dependency conflicts with a structured prompt"
 - "Generate a security audit prompt for my production packages"
+
+### Environment Analysis
+- "Analyze my current Python environment dependencies and check for outdated packages"
+- "Check which packages in my environment have security updates available"
+- "Generate an update plan for my production environment with conservative strategy"
+- "Help me identify packages that need immediate updates vs. planned updates"
+
+### Trending Analysis
+- "What are the most downloaded Python packages today?"
+- "Show me trending packages in the machine learning domain this week"
+- "Track recent security updates and new package releases"
+- "Find rising packages in web development that I should consider"
 
 ### Example Conversations
 
