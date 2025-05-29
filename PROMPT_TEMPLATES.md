@@ -6,6 +6,20 @@ This document describes the MCP prompt templates available in the PyPI Query MCP
 
 Prompt templates are reusable message templates that help you get structured guidance from LLMs for specific PyPI package management tasks. They provide comprehensive frameworks for analysis and decision-making.
 
+### 🔄 MCP Workflow Implementation
+
+Our prompt templates follow the standard MCP (Model Context Protocol) workflow:
+
+1. **User calls tool** → MCP client sends request
+2. **Tool function executes** → Collects necessary data and parameters
+3. **Call Prompt generator** → Pass parameters to corresponding generator
+4. **Load template** → Get template with `{{parameter}}` placeholders
+5. **Parameter replacement** → Replace `{{parameter_name}}` with actual values
+6. **Environment variable customization** → Apply user's custom prompt words (optional)
+7. **Return final prompt** → As tool's response back to AI
+
+This ensures consistent, reliable prompt generation that integrates seamlessly with MCP clients.
+
 ## 📋 Available Prompt Templates
 
 ### Package Analysis Templates

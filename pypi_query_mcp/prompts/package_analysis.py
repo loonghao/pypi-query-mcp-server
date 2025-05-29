@@ -18,17 +18,15 @@ async def analyze_package_quality(
     package_name: Annotated[str, Field(description="Name of the PyPI package to analyze")],
     version: Annotated[str | None, Field(description="Specific version to analyze")] = None,
     ctx: Context | None = None,
-) -> list[Message]:
-    """Generate a comprehensive package quality analysis prompt.
+) -> str:
+    """Generate a comprehensive package quality analysis prompt template.
 
     This prompt template helps analyze a Python package's quality, maintenance status,
     security, performance, and overall suitability for use in projects.
-    """
-    version_text = f" version {version}" if version else ""
 
-    return [
-        Message(
-            f"""Please provide a comprehensive quality analysis of the Python package '{package_name}'{version_text}.
+    Returns a template string with {{package_name}} and {{version_text}} variables.
+    """
+    template = """Please provide a comprehensive quality analysis of the Python package '{{package_name}}' {{version_text}}.
 
 Analyze the following aspects:
 
@@ -59,8 +57,8 @@ Analyze the following aspects:
 - Best practices for integration
 
 Please provide specific examples and actionable insights where possible."""
-        )
-    ]
+
+    return template
 
 
 async def compare_packages(
@@ -77,23 +75,18 @@ async def compare_packages(
         Field(description="Specific criteria to focus on (e.g., performance, security, ease of use)")
     ] = None,
     ctx: Context | None = None,
-) -> list[Message]:
-    """Generate a detailed package comparison prompt.
+) -> str:
+    """Generate a detailed package comparison prompt template.
 
     This prompt template helps compare multiple Python packages to determine
     the best choice for a specific use case.
-    """
-    packages_text = ", ".join(f"'{pkg}'" for pkg in packages)
-    criteria_text = ""
-    if criteria:
-        criteria_text = f"\n\nFocus particularly on these criteria: {', '.join(criteria)}"
 
-    return [
-        Message(
-            f"""Please provide a detailed comparison of these Python packages: {packages_text}
+    Returns a template string with {{packages_text}}, {{use_case}}, and {{criteria_text}} variables.
+    """
+    template = """Please provide a detailed comparison of these Python packages: {{packages_text}}
 
 ## 🎯 Use Case Context
-{use_case}{criteria_text}
+{{use_case}}{{criteria_text}}
 
 ## 📋 Comparison Framework
 
@@ -127,8 +120,8 @@ Provide a clear recommendation with:
 - Migration considerations if switching between them
 
 Please include specific examples and quantitative data where available."""
-        )
-    ]
+
+    return template
 
 
 async def suggest_alternatives(
@@ -142,27 +135,15 @@ async def suggest_alternatives(
         Field(description="Specific requirements or constraints for alternatives")
     ] = None,
     ctx: Context | None = None,
-) -> list[Message]:
-    """Generate a prompt for finding package alternatives.
+) -> str:
+    """Generate a prompt template for finding package alternatives.
 
     This prompt template helps find suitable alternatives to a Python package
     based on specific concerns or requirements.
+
+    Returns a template string with {{package_name}}, {{reason_text}}, and {{requirements_text}} variables.
     """
-    reason_context = {
-        "deprecated": "the package is deprecated or no longer maintained",
-        "security": "security vulnerabilities or concerns",
-        "performance": "performance issues or requirements",
-        "licensing": "licensing conflicts or restrictions",
-        "maintenance": "poor maintenance or lack of updates",
-        "features": "missing features or functionality gaps"
-    }
-
-    reason_text = reason_context.get(reason, reason)
-    requirements_text = f"\n\nSpecific requirements: {requirements}" if requirements else ""
-
-    return [
-        Message(
-            f"""I need to find alternatives to the Python package '{package_name}' because of {reason_text}.{requirements_text}
+    template = """I need to find alternatives to the Python package '{{package_name}}' because of {{reason_text}}.{{requirements_text}}
 
 Please help me identify suitable alternatives by analyzing:
 
@@ -176,7 +157,7 @@ Please help me identify suitable alternatives by analyzing:
 For each suggested alternative:
 
 ### Functional Compatibility
-- Feature parity with '{package_name}'
+- Feature parity with '{{package_name}}'
 - API similarity and migration effort
 - Unique advantages or improvements
 
@@ -186,7 +167,7 @@ For each suggested alternative:
 - Performance comparisons
 
 ### Migration Considerations
-- Breaking changes from '{package_name}'
+- Breaking changes from '{{package_name}}'
 - Migration tools or guides available
 - Estimated effort and timeline
 
@@ -198,6 +179,6 @@ Provide:
 - Pros and cons summary for each alternative
 - Any hybrid approaches or gradual migration strategies
 
-Please include specific examples of how to replace key functionality from '{package_name}'."""
-        )
-    ]
+Please include specific examples of how to replace key functionality from '{{package_name}}'."""
+
+    return template
