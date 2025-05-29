@@ -15,20 +15,24 @@ class Message:
 
 
 async def analyze_package_quality(
-    package_name: Annotated[str, Field(description="Name of the PyPI package to analyze")],
-    version: Annotated[str | None, Field(description="Specific version to analyze")] = None,
+    package_name: Annotated[
+        str, Field(description="Name of the PyPI package to analyze")
+    ],
+    version: Annotated[
+        str | None, Field(description="Specific version to analyze")
+    ] = None,
     ctx: Context | None = None,
-) -> str:
+) -> list[Message]:
     """Generate a comprehensive package quality analysis prompt template.
 
     This prompt template helps analyze a Python package's quality, maintenance status,
     security, performance, and overall suitability for use in projects.
 
-    Returns a template string with {{package_name}} and {{version_text}} variables.
+    Returns a list containing a Message object with the analysis prompt.
     """
     template = """Please provide a comprehensive quality analysis of the Python package '{{package_name}}' {{version_text}}.
 
-Analyze the following aspects:
+Analyze the following aspects and provide a detailed assessment:
 
 ## 📊 Package Overview
 - Package purpose and functionality
@@ -58,21 +62,24 @@ Analyze the following aspects:
 
 Please provide specific examples and actionable insights where possible."""
 
-    return template
+    return [Message(template)]
 
 
 async def compare_packages(
     packages: Annotated[
         list[str],
-        Field(description="List of package names to compare", min_length=2, max_length=5)
+        Field(
+            description="List of package names to compare", min_length=2, max_length=5
+        ),
     ],
     use_case: Annotated[
-        str,
-        Field(description="Specific use case or project context for comparison")
+        str, Field(description="Specific use case or project context for comparison")
     ],
     criteria: Annotated[
         list[str] | None,
-        Field(description="Specific criteria to focus on (e.g., performance, security, ease of use)")
+        Field(
+            description="Specific criteria to focus on (e.g., performance, security, ease of use)"
+        ),
     ] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -125,14 +132,23 @@ Please include specific examples and quantitative data where available."""
 
 
 async def suggest_alternatives(
-    package_name: Annotated[str, Field(description="Name of the package to find alternatives for")],
+    package_name: Annotated[
+        str, Field(description="Name of the package to find alternatives for")
+    ],
     reason: Annotated[
-        Literal["deprecated", "security", "performance", "licensing", "maintenance", "features"],
-        Field(description="Reason for seeking alternatives")
+        Literal[
+            "deprecated",
+            "security",
+            "performance",
+            "licensing",
+            "maintenance",
+            "features",
+        ],
+        Field(description="Reason for seeking alternatives"),
     ],
     requirements: Annotated[
         str | None,
-        Field(description="Specific requirements or constraints for alternatives")
+        Field(description="Specific requirements or constraints for alternatives"),
     ] = None,
     ctx: Context | None = None,
 ) -> str:

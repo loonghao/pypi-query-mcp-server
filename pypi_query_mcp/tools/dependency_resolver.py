@@ -28,7 +28,7 @@ class DependencyResolver:
         python_version: str | None = None,
         include_extras: list[str] | None = None,
         include_dev: bool = False,
-        max_depth: int | None = None
+        max_depth: int | None = None,
     ) -> dict[str, Any]:
         """Resolve all dependencies for a package recursively.
 
@@ -48,7 +48,9 @@ class DependencyResolver:
         max_depth = max_depth or self.max_depth
         include_extras = include_extras or []
 
-        logger.info(f"Resolving dependencies for {package_name} (Python {python_version})")
+        logger.info(
+            f"Resolving dependencies for {package_name} (Python {python_version})"
+        )
 
         # Track visited packages to avoid circular dependencies
         visited: set[str] = set()
@@ -63,13 +65,15 @@ class DependencyResolver:
                 visited=visited,
                 dependency_tree=dependency_tree,
                 current_depth=0,
-                max_depth=max_depth
+                max_depth=max_depth,
             )
 
             # Check if main package was resolved
             normalized_name = package_name.lower().replace("_", "-")
             if normalized_name not in dependency_tree:
-                raise PackageNotFoundError(f"Package '{package_name}' not found on PyPI")
+                raise PackageNotFoundError(
+                    f"Package '{package_name}' not found on PyPI"
+                )
 
             # Generate summary
             summary = self._generate_dependency_summary(dependency_tree)
@@ -80,13 +84,15 @@ class DependencyResolver:
                 "include_extras": include_extras,
                 "include_dev": include_dev,
                 "dependency_tree": dependency_tree,
-                "summary": summary
+                "summary": summary,
             }
 
         except PyPIError:
             raise
         except Exception as e:
-            logger.error(f"Unexpected error resolving dependencies for {package_name}: {e}")
+            logger.error(
+                f"Unexpected error resolving dependencies for {package_name}: {e}"
+            )
             raise NetworkError(f"Failed to resolve dependencies: {e}", e) from e
 
     async def _resolve_recursive(
@@ -98,7 +104,7 @@ class DependencyResolver:
         visited: set[str],
         dependency_tree: dict[str, Any],
         current_depth: int,
-        max_depth: int
+        max_depth: int,
     ) -> None:
         """Recursively resolve dependencies."""
 
@@ -138,11 +144,13 @@ class DependencyResolver:
                 "requires_python": info.get("requires_python", ""),
                 "dependencies": {
                     "runtime": [str(req) for req in categorized["runtime"]],
-                    "development": [str(req) for req in categorized["development"]] if include_dev else [],
-                    "extras": {}
+                    "development": [str(req) for req in categorized["development"]]
+                    if include_dev
+                    else [],
+                    "extras": {},
                 },
                 "depth": current_depth,
-                "children": {}
+                "children": {},
             }
 
             # Add requested extras
@@ -177,12 +185,14 @@ class DependencyResolver:
                         visited=visited,
                         dependency_tree=dependency_tree,
                         current_depth=current_depth + 1,
-                        max_depth=max_depth
+                        max_depth=max_depth,
                     )
 
                     # Add to children if resolved
                     if dep_name.lower() in dependency_tree:
-                        package_info["children"][dep_name.lower()] = dependency_tree[dep_name.lower()]
+                        package_info["children"][dep_name.lower()] = dependency_tree[
+                            dep_name.lower()
+                        ]
 
         except PackageNotFoundError:
             logger.warning(f"Package {package_name} not found, skipping")
@@ -190,7 +200,9 @@ class DependencyResolver:
             logger.error(f"Error resolving {package_name}: {e}")
             # Continue with other dependencies
 
-    def _generate_dependency_summary(self, dependency_tree: dict[str, Any]) -> dict[str, Any]:
+    def _generate_dependency_summary(
+        self, dependency_tree: dict[str, Any]
+    ) -> dict[str, Any]:
         """Generate summary statistics for the dependency tree."""
 
         total_packages = len(dependency_tree)
@@ -214,7 +226,7 @@ class DependencyResolver:
             "total_development_dependencies": total_dev_deps,
             "total_extra_dependencies": total_extra_deps,
             "max_depth": max_depth,
-            "package_list": list(dependency_tree.keys())
+            "package_list": list(dependency_tree.keys()),
         }
 
 
@@ -223,7 +235,7 @@ async def resolve_package_dependencies(
     python_version: str | None = None,
     include_extras: list[str] | None = None,
     include_dev: bool = False,
-    max_depth: int = 5
+    max_depth: int = 5,
 ) -> dict[str, Any]:
     """Resolve package dependencies with comprehensive analysis.
 
@@ -242,5 +254,5 @@ async def resolve_package_dependencies(
         package_name=package_name,
         python_version=python_version,
         include_extras=include_extras,
-        include_dev=include_dev
+        include_dev=include_dev,
     )

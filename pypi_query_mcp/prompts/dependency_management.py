@@ -17,15 +17,17 @@ class Message:
 async def resolve_dependency_conflicts(
     conflicts: Annotated[
         list[str],
-        Field(description="List of conflicting dependencies or error messages", min_length=1)
+        Field(
+            description="List of conflicting dependencies or error messages",
+            min_length=1,
+        ),
     ],
     python_version: Annotated[
-        str | None,
-        Field(description="Target Python version (e.g., '3.10', '3.11')")
+        str | None, Field(description="Target Python version (e.g., '3.10', '3.11')")
     ] = None,
     project_context: Annotated[
         str | None,
-        Field(description="Brief description of the project and its requirements")
+        Field(description="Brief description of the project and its requirements"),
     ] = None,
     ctx: Context | None = None,
 ) -> list[Message]:
@@ -90,11 +92,11 @@ async def plan_version_upgrade(
     current_version: Annotated[str, Field(description="Current version being used")],
     target_version: Annotated[
         str | None,
-        Field(description="Target version (if known), or 'latest' for newest")
+        Field(description="Target version (if known), or 'latest' for newest"),
     ] = None,
     project_size: Annotated[
         str | None,
-        Field(description="Project size context (small/medium/large/enterprise)")
+        Field(description="Project size context (small/medium/large/enterprise)"),
     ] = None,
     ctx: Context | None = None,
 ) -> list[Message]:
@@ -168,15 +170,17 @@ Please provide specific commands, code examples, and timelines where applicable.
 async def audit_security_risks(
     packages: Annotated[
         list[str],
-        Field(description="List of packages to audit for security risks", min_length=1)
+        Field(description="List of packages to audit for security risks", min_length=1),
     ],
     environment: Annotated[
         str | None,
-        Field(description="Environment context (development/staging/production)")
+        Field(description="Environment context (development/staging/production)"),
     ] = None,
     compliance_requirements: Annotated[
         str | None,
-        Field(description="Specific compliance requirements (e.g., SOC2, HIPAA, PCI-DSS)")
+        Field(
+            description="Specific compliance requirements (e.g., SOC2, HIPAA, PCI-DSS)"
+        ),
     ] = None,
     ctx: Context | None = None,
 ) -> list[Message]:
@@ -187,7 +191,11 @@ async def audit_security_risks(
     """
     packages_text = ", ".join(f"'{pkg}'" for pkg in packages)
     env_text = f"\nEnvironment: {environment}" if environment else ""
-    compliance_text = f"\nCompliance requirements: {compliance_requirements}" if compliance_requirements else ""
+    compliance_text = (
+        f"\nCompliance requirements: {compliance_requirements}"
+        if compliance_requirements
+        else ""
+    )
 
     return [
         Message(

@@ -2,6 +2,11 @@
 
 import pytest
 
+# Import the actual prompt functions
+from pypi_query_mcp.prompts.package_analysis import (
+    analyze_package_quality as real_analyze_package_quality,
+)
+
 
 # Simple Message class for testing
 class Message:
@@ -10,16 +15,15 @@ class Message:
         self.role = role
 
 
-# Mock the prompt functions to return simple strings for testing
+# Mock the prompt functions to return simple strings for testing (except analyze_package_quality)
 async def analyze_package_quality(package_name: str, version: str = None):
-    text = f"Quality analysis for {package_name}"
-    if version:
-        text += f" version {version}"
-    text += "\n\n## 📊 Package Overview\n## 🔧 Technical Quality\n## 🛡️ Security & Reliability"
-    return [Message(text)]
+    # Use the real function for the structure test
+    return await real_analyze_package_quality(package_name, version)
 
 
-async def compare_packages(packages: list[str], use_case: str, criteria: list[str] = None):
+async def compare_packages(
+    packages: list[str], use_case: str, criteria: list[str] = None
+):
     packages_text = ", ".join(packages)
     text = f"Comparison of {packages_text} for {use_case}"
     if criteria:
@@ -27,7 +31,9 @@ async def compare_packages(packages: list[str], use_case: str, criteria: list[st
     return [Message(text)]
 
 
-async def suggest_alternatives(package_name: str, reason: str, requirements: str = None):
+async def suggest_alternatives(
+    package_name: str, reason: str, requirements: str = None
+):
     text = f"Alternatives to {package_name} due to {reason}"
     if requirements:
         text += f"\nRequirements: {requirements}"
@@ -35,7 +41,9 @@ async def suggest_alternatives(package_name: str, reason: str, requirements: str
     return [Message(text)]
 
 
-async def resolve_dependency_conflicts(conflicts: list[str], python_version: str = None, project_context: str = None):
+async def resolve_dependency_conflicts(
+    conflicts: list[str], python_version: str = None, project_context: str = None
+):
     text = f"Dependency conflicts: {conflicts[0]}"
     if python_version:
         text += f"\nPython version: {python_version}"
@@ -44,7 +52,12 @@ async def resolve_dependency_conflicts(conflicts: list[str], python_version: str
     return [Message(text)]
 
 
-async def plan_version_upgrade(package_name: str, current_version: str, target_version: str = None, project_size: str = None):
+async def plan_version_upgrade(
+    package_name: str,
+    current_version: str,
+    target_version: str = None,
+    project_size: str = None,
+):
     text = f"Upgrade {package_name} from {current_version}"
     if target_version:
         text += f" to {target_version}"
@@ -54,7 +67,9 @@ async def plan_version_upgrade(package_name: str, current_version: str, target_v
     return [Message(text)]
 
 
-async def audit_security_risks(packages: list[str], environment: str = None, compliance_requirements: str = None):
+async def audit_security_risks(
+    packages: list[str], environment: str = None, compliance_requirements: str = None
+):
     packages_text = ", ".join(packages)
     text = f"Security audit for {packages_text}"
     if environment:
@@ -64,7 +79,13 @@ async def audit_security_risks(packages: list[str], environment: str = None, com
     return [Message(text)]
 
 
-async def plan_package_migration(from_package: str, to_package: str, codebase_size: str = "medium", timeline: str = None, team_size: int = None):
+async def plan_package_migration(
+    from_package: str,
+    to_package: str,
+    codebase_size: str = "medium",
+    timeline: str = None,
+    team_size: int = None,
+):
     text = f"Migration from {from_package} to {to_package} in {codebase_size} codebase"
     if timeline:
         text += f"\nTimeline: {timeline}"
@@ -73,7 +94,9 @@ async def plan_package_migration(from_package: str, to_package: str, codebase_si
     return [Message(text)]
 
 
-async def generate_migration_checklist(migration_type: str, packages_involved: list[str], environment: str = "all"):
+async def generate_migration_checklist(
+    migration_type: str, packages_involved: list[str], environment: str = "all"
+):
     packages_text = ", ".join(packages_involved)
     text = f"Migration checklist for {migration_type} involving {packages_text} in {environment}"
     text += "\nchecklist"
@@ -87,10 +110,11 @@ class TestPackageAnalysisPrompts:
     async def test_analyze_package_quality(self):
         """Test package quality analysis prompt generation."""
         result = await analyze_package_quality("requests", "2.31.0")
-        
+
         assert len(result) == 1
-        assert "requests" in result[0].text
-        assert "version 2.31.0" in result[0].text
+        # Check for template placeholders instead of actual values
+        assert "{{package_name}}" in result[0].text
+        assert "{{version_text}}" in result[0].text
         assert "Package Overview" in result[0].text
         assert "Technical Quality" in result[0].text
         assert "Security & Reliability" in result[0].text
@@ -99,10 +123,11 @@ class TestPackageAnalysisPrompts:
     async def test_analyze_package_quality_no_version(self):
         """Test package quality analysis without specific version."""
         result = await analyze_package_quality("django")
-        
+
         assert len(result) == 1
-        assert "django" in result[0].text
-        assert "version" not in result[0].text.lower()
+        # Check for template placeholders
+        assert "{{package_name}}" in result[0].text
+        assert "{{version_text}}" in result[0].text
 
     @pytest.mark.asyncio
     async def test_compare_packages(self):
@@ -110,9 +135,9 @@ class TestPackageAnalysisPrompts:
         packages = ["django", "flask", "fastapi"]
         use_case = "Building a REST API"
         criteria = ["performance", "ease of use"]
-        
+
         result = await compare_packages(packages, use_case, criteria)
-        
+
         assert len(result) == 1
         message_text = result[0].text
         assert "django" in message_text
@@ -125,8 +150,10 @@ class TestPackageAnalysisPrompts:
     @pytest.mark.asyncio
     async def test_suggest_alternatives(self):
         """Test package alternatives suggestion prompt generation."""
-        result = await suggest_alternatives("flask", "performance", "Need async support")
-        
+        result = await suggest_alternatives(
+            "flask", "performance", "Need async support"
+        )
+
         assert len(result) == 1
         message_text = result[0].text
         assert "flask" in message_text
@@ -143,13 +170,13 @@ class TestDependencyManagementPrompts:
         """Test dependency conflict resolution prompt generation."""
         conflicts = [
             "django 4.2.0 requires sqlparse>=0.3.1, but you have sqlparse 0.2.4",
-            "Package A requires numpy>=1.20.0, but Package B requires numpy<1.19.0"
+            "Package A requires numpy>=1.20.0, but Package B requires numpy<1.19.0",
         ]
-        
+
         result = await resolve_dependency_conflicts(
             conflicts, "3.10", "Django web application"
         )
-        
+
         assert len(result) == 1
         message_text = result[0].text
         assert "django 4.2.0" in message_text
@@ -161,7 +188,7 @@ class TestDependencyManagementPrompts:
     async def test_plan_version_upgrade(self):
         """Test version upgrade planning prompt generation."""
         result = await plan_version_upgrade("django", "3.2.0", "4.2.0", "large")
-        
+
         assert len(result) == 1
         message_text = result[0].text
         assert "django" in message_text
@@ -174,11 +201,9 @@ class TestDependencyManagementPrompts:
     async def test_audit_security_risks(self):
         """Test security audit prompt generation."""
         packages = ["django", "requests", "pillow"]
-        
-        result = await audit_security_risks(
-            packages, "production", "SOC2 compliance"
-        )
-        
+
+        result = await audit_security_risks(packages, "production", "SOC2 compliance")
+
         assert len(result) == 1
         message_text = result[0].text
         assert "django" in message_text
@@ -197,7 +222,7 @@ class TestMigrationGuidancePrompts:
         result = await plan_package_migration(
             "flask", "fastapi", "medium", "2 months", 4
         )
-        
+
         assert len(result) == 1
         message_text = result[0].text
         assert "flask" in message_text
@@ -212,7 +237,7 @@ class TestMigrationGuidancePrompts:
         result = await generate_migration_checklist(
             "package_replacement", ["flask", "fastapi"], "production"
         )
-        
+
         assert len(result) == 1
         message_text = result[0].text
         assert "package_replacement" in message_text
@@ -239,14 +264,14 @@ class TestPromptTemplateStructure:
             (plan_package_migration, ("flask", "fastapi")),
             (generate_migration_checklist, ("package_replacement", ["flask"])),
         ]
-        
+
         for prompt_func, args in prompts_to_test:
             result = await prompt_func(*args)
             assert isinstance(result, list)
             assert len(result) > 0
             # Check that each item has a text attribute (Message-like)
             for message in result:
-                assert hasattr(message, 'text')
+                assert hasattr(message, "text")
                 assert isinstance(message.text, str)
                 assert len(message.text) > 0
 
@@ -255,13 +280,22 @@ class TestPromptTemplateStructure:
         """Test that prompts contain structured, useful content."""
         result = await analyze_package_quality("requests")
         message_text = result[0].text
-        
+
         # Check for structured sections
         assert "##" in message_text  # Should have markdown headers
-        assert "📊" in message_text or "🔧" in message_text  # Should have emojis for structure
+        assert (
+            "📊" in message_text or "🔧" in message_text
+        )  # Should have emojis for structure
         assert len(message_text) > 50  # Should be substantial content
-        
+
         # Check for actionable content
-        assert any(word in message_text.lower() for word in [
-            "analyze", "assessment", "recommendations", "specific", "examples"
-        ])
+        assert any(
+            word in message_text.lower()
+            for word in [
+                "analyze",
+                "assessment",
+                "recommendations",
+                "specific",
+                "examples",
+            ]
+        )

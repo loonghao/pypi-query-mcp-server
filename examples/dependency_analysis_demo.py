@@ -24,21 +24,21 @@ async def analyze_pyside2_dependencies():
             python_version="3.10",
             include_extras=[],
             include_dev=False,
-            max_depth=3
+            max_depth=3,
         )
 
         print(f"✅ Successfully resolved dependencies for {result['package_name']}")
         print("📊 Summary:")
-        summary = result['summary']
+        summary = result["summary"]
         print(f"   - Total packages: {summary['total_packages']}")
         print(f"   - Runtime dependencies: {summary['total_runtime_dependencies']}")
         print(f"   - Max depth: {summary['max_depth']}")
 
         print("\n📦 Package list:")
-        for i, pkg in enumerate(summary['package_list'][:10], 1):  # Show first 10
+        for i, pkg in enumerate(summary["package_list"][:10], 1):  # Show first 10
             print(f"   {i}. {pkg}")
 
-        if len(summary['package_list']) > 10:
+        if len(summary["package_list"]) > 10:
             print(f"   ... and {len(summary['package_list']) - 10} more packages")
 
         return result
@@ -63,12 +63,12 @@ async def download_pyside2_packages():
             include_dev=False,
             prefer_wheel=True,
             verify_checksums=True,
-            max_depth=2  # Limit depth for demo
+            max_depth=2,  # Limit depth for demo
         )
 
         print("✅ Download completed!")
         print("📊 Download Summary:")
-        summary = result['summary']
+        summary = result["summary"]
         print(f"   - Total packages: {summary['total_packages']}")
         print(f"   - Successful downloads: {summary['successful_downloads']}")
         print(f"   - Failed downloads: {summary['failed_downloads']}")
@@ -76,9 +76,9 @@ async def download_pyside2_packages():
         print(f"   - Success rate: {summary['success_rate']:.1f}%")
         print(f"   - Download directory: {summary['download_directory']}")
 
-        if result['failed_downloads']:
+        if result["failed_downloads"]:
             print("\n⚠️  Failed downloads:")
-            for failure in result['failed_downloads']:
+            for failure in result["failed_downloads"]:
                 print(f"   - {failure['package']}: {failure['error']}")
 
         return result
@@ -98,20 +98,20 @@ async def analyze_small_package():
             python_version="3.10",
             include_extras=[],
             include_dev=False,
-            max_depth=5
+            max_depth=5,
         )
 
         print(f"✅ Successfully resolved dependencies for {result['package_name']}")
 
         # Show detailed dependency tree
         print("\n🌳 Dependency Tree:")
-        dependency_tree = result['dependency_tree']
+        dependency_tree = result["dependency_tree"]
 
         for _pkg_name, pkg_info in dependency_tree.items():
-            indent = "  " * pkg_info['depth']
+            indent = "  " * pkg_info["depth"]
             print(f"{indent}- {pkg_info['name']} ({pkg_info['version']})")
 
-            runtime_deps = pkg_info['dependencies']['runtime']
+            runtime_deps = pkg_info["dependencies"]["runtime"]
             if runtime_deps:
                 for dep in runtime_deps[:3]:  # Show first 3 dependencies
                     print(f"{indent}  └─ {dep}")

@@ -87,12 +87,15 @@ class PyPIStatsClient:
 
     def _get_cache_key(self, endpoint: str, package_name: str = "", **params) -> str:
         """Generate cache key for API data."""
-        param_str = "&".join(f"{k}={v}" for k, v in sorted(params.items()) if v is not None)
+        param_str = "&".join(
+            f"{k}={v}" for k, v in sorted(params.items()) if v is not None
+        )
         return f"{endpoint}:{package_name}:{param_str}"
 
     def _is_cache_valid(self, cache_entry: dict[str, Any]) -> bool:
         """Check if cache entry is still valid."""
         import time
+
         return time.time() - cache_entry.get("timestamp", 0) < self._cache_ttl
 
     async def _make_request(self, url: str) -> dict[str, Any]:
@@ -187,13 +190,16 @@ class PyPIStatsClient:
         if period and period != "all":
             url += f"?period={period}"
 
-        logger.info(f"Fetching recent downloads for: {normalized_name} (period: {period})")
+        logger.info(
+            f"Fetching recent downloads for: {normalized_name} (period: {period})"
+        )
 
         try:
             data = await self._make_request(url)
 
             # Cache the result
             import time
+
             self._cache[cache_key] = {"data": data, "timestamp": time.time()}
 
             return data
@@ -235,19 +241,24 @@ class PyPIStatsClient:
         if mirrors is not None:
             url += f"?mirrors={'true' if mirrors else 'false'}"
 
-        logger.info(f"Fetching overall downloads for: {normalized_name} (mirrors: {mirrors})")
+        logger.info(
+            f"Fetching overall downloads for: {normalized_name} (mirrors: {mirrors})"
+        )
 
         try:
             data = await self._make_request(url)
 
             # Cache the result
             import time
+
             self._cache[cache_key] = {"data": data, "timestamp": time.time()}
 
             return data
 
         except Exception as e:
-            logger.error(f"Failed to fetch overall downloads for {normalized_name}: {e}")
+            logger.error(
+                f"Failed to fetch overall downloads for {normalized_name}: {e}"
+            )
             raise
 
     def clear_cache(self):

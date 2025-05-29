@@ -34,8 +34,7 @@ async def demo_package_analysis_prompts():
         print("-" * 30)
 
         result = await client.get_prompt(
-            "analyze_package_quality",
-            {"package_name": "requests", "version": "2.31.0"}
+            "analyze_package_quality", {"package_name": "requests", "version": "2.31.0"}
         )
 
         print("Prompt generated for analyzing 'requests' package quality:")
@@ -50,8 +49,8 @@ async def demo_package_analysis_prompts():
             {
                 "packages": ["requests", "httpx", "aiohttp"],
                 "use_case": "Building a high-performance web API client",
-                "criteria": ["performance", "async support", "ease of use"]
-            }
+                "criteria": ["performance", "async support", "ease of use"],
+            },
         )
 
         print("Prompt generated for comparing HTTP client libraries:")
@@ -66,8 +65,8 @@ async def demo_package_analysis_prompts():
             {
                 "package_name": "flask",
                 "reason": "performance",
-                "requirements": "Need async support and better performance for high-traffic API"
-            }
+                "requirements": "Need async support and better performance for high-traffic API",
+            },
         )
 
         print("Prompt generated for finding Flask alternatives:")
@@ -91,11 +90,11 @@ async def demo_dependency_management_prompts():
             {
                 "conflicts": [
                     "django 4.2.0 requires sqlparse>=0.3.1, but you have sqlparse 0.2.4",
-                    "Package A requires numpy>=1.20.0, but Package B requires numpy<1.19.0"
+                    "Package A requires numpy>=1.20.0, but Package B requires numpy<1.19.0",
                 ],
                 "python_version": "3.10",
-                "project_context": "Django web application with data analysis features"
-            }
+                "project_context": "Django web application with data analysis features",
+            },
         )
 
         print("Prompt generated for resolving dependency conflicts:")
@@ -111,8 +110,8 @@ async def demo_dependency_management_prompts():
                 "package_name": "django",
                 "current_version": "3.2.0",
                 "target_version": "4.2.0",
-                "project_size": "large"
-            }
+                "project_size": "large",
+            },
         )
 
         print("Prompt generated for Django upgrade planning:")
@@ -127,8 +126,8 @@ async def demo_dependency_management_prompts():
             {
                 "packages": ["django", "requests", "pillow", "cryptography"],
                 "environment": "production",
-                "compliance_requirements": "SOC2, GDPR compliance required"
-            }
+                "compliance_requirements": "SOC2, GDPR compliance required",
+            },
         )
 
         print("Prompt generated for security audit:")
@@ -154,8 +153,8 @@ async def demo_migration_prompts():
                 "to_package": "fastapi",
                 "codebase_size": "medium",
                 "timeline": "2 months",
-                "team_size": 4
-            }
+                "team_size": 4,
+            },
         )
 
         print("Prompt generated for Flask to FastAPI migration:")
@@ -170,8 +169,8 @@ async def demo_migration_prompts():
             {
                 "migration_type": "package_replacement",
                 "packages_involved": ["flask", "fastapi", "pydantic"],
-                "environment": "production"
-            }
+                "environment": "production",
+            },
         )
 
         print("Prompt generated for migration checklist:")
@@ -197,7 +196,9 @@ async def demo_prompt_list():
                 print("  Arguments:")
                 for arg in prompt.arguments:
                     required = " (required)" if arg.required else " (optional)"
-                    print(f"    - {arg.name}{required}: {arg.description or 'No description'}")
+                    print(
+                        f"    - {arg.name}{required}: {arg.description or 'No description'}"
+                    )
 
 
 async def main():
@@ -225,7 +226,9 @@ async def main():
 
     except Exception as e:
         print(f"\n❌ Error running demo: {e}")
-        print("\nMake sure the PyPI Query MCP Server is properly installed and configured.")
+        print(
+            "\nMake sure the PyPI Query MCP Server is properly installed and configured."
+        )
 
 
 if __name__ == "__main__":

@@ -295,7 +295,7 @@ async def resolve_dependencies(
     python_version: str | None = None,
     include_extras: list[str] | None = None,
     include_dev: bool = False,
-    max_depth: int = 5
+    max_depth: int = 5,
 ) -> dict[str, Any]:
     """Resolve all dependencies for a PyPI package recursively.
 
@@ -331,7 +331,7 @@ async def resolve_dependencies(
             python_version=python_version,
             include_extras=include_extras,
             include_dev=include_dev,
-            max_depth=max_depth
+            max_depth=max_depth,
         )
         logger.info(f"Successfully resolved dependencies for package: {package_name}")
         return result
@@ -362,7 +362,7 @@ async def download_package(
     include_dev: bool = False,
     prefer_wheel: bool = True,
     verify_checksums: bool = True,
-    max_depth: int = 5
+    max_depth: int = 5,
 ) -> dict[str, Any]:
     """Download a PyPI package and all its dependencies to local directory.
 
@@ -404,7 +404,7 @@ async def download_package(
             include_dev=include_dev,
             prefer_wheel=prefer_wheel,
             verify_checksums=verify_checksums,
-            max_depth=max_depth
+            max_depth=max_depth,
         )
         logger.info(f"Successfully downloaded {package_name} and dependencies")
         return result
@@ -453,9 +453,13 @@ async def get_download_statistics(
         NetworkError: For network-related errors
     """
     try:
-        logger.info(f"MCP tool: Getting download statistics for {package_name} (period: {period})")
+        logger.info(
+            f"MCP tool: Getting download statistics for {package_name} (period: {period})"
+        )
         result = await get_package_download_stats(package_name, period, use_cache)
-        logger.info(f"Successfully retrieved download statistics for package: {package_name}")
+        logger.info(
+            f"Successfully retrieved download statistics for package: {package_name}"
+        )
         return result
     except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
         logger.error(f"Error getting download statistics for {package_name}: {e}")
@@ -466,7 +470,9 @@ async def get_download_statistics(
             "period": period,
         }
     except Exception as e:
-        logger.error(f"Unexpected error getting download statistics for {package_name}: {e}")
+        logger.error(
+            f"Unexpected error getting download statistics for {package_name}: {e}"
+        )
         return {
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
@@ -506,8 +512,12 @@ async def get_download_trends(
             f"MCP tool: Getting download trends for {package_name} "
             f"(include_mirrors: {include_mirrors})"
         )
-        result = await get_package_download_trends(package_name, include_mirrors, use_cache)
-        logger.info(f"Successfully retrieved download trends for package: {package_name}")
+        result = await get_package_download_trends(
+            package_name, include_mirrors, use_cache
+        )
+        logger.info(
+            f"Successfully retrieved download trends for package: {package_name}"
+        )
         return result
     except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
         logger.error(f"Error getting download trends for {package_name}: {e}")
@@ -518,7 +528,9 @@ async def get_download_trends(
             "include_mirrors": include_mirrors,
         }
     except Exception as e:
-        logger.error(f"Unexpected error getting download trends for {package_name}: {e}")
+        logger.error(
+            f"Unexpected error getting download trends for {package_name}: {e}"
+        )
         return {
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
@@ -555,7 +567,9 @@ async def get_top_downloaded_packages(
         # Limit the maximum number of packages to prevent excessive API calls
         actual_limit = min(limit, 50)
 
-        logger.info(f"MCP tool: Getting top {actual_limit} packages for period: {period}")
+        logger.info(
+            f"MCP tool: Getting top {actual_limit} packages for period: {period}"
+        )
         result = await get_top_packages_by_downloads(period, actual_limit)
         logger.info("Successfully retrieved top packages list")
         return result
@@ -578,10 +592,10 @@ async def get_top_downloaded_packages(
 # 6. Environment variable customization → Apply user's custom prompt words
 # 7. Return final prompt → As tool's response back to AI
 
+
 @mcp.prompt()
 async def analyze_package_quality_prompt(
-    package_name: str,
-    version: str | None = None
+    package_name: str, version: str | None = None
 ) -> str:
     """Generate a comprehensive quality analysis prompt for a PyPI package."""
     # Step 3: Call Prompt generator
@@ -603,9 +617,7 @@ async def analyze_package_quality_prompt(
 
 @mcp.prompt()
 async def compare_packages_prompt(
-    packages: list[str],
-    use_case: str,
-    criteria: list[str] | None = None
+    packages: list[str], use_case: str, criteria: list[str] | None = None
 ) -> str:
     """Generate a detailed comparison prompt for multiple PyPI packages."""
     # Step 3: Call Prompt generator
@@ -618,7 +630,9 @@ async def compare_packages_prompt(
 
     # Handle criteria parameter
     if criteria:
-        criteria_text = f"\n\nFocus particularly on these criteria: {', '.join(criteria)}"
+        criteria_text = (
+            f"\n\nFocus particularly on these criteria: {', '.join(criteria)}"
+        )
     else:
         criteria_text = ""
     result = result.replace("{{criteria_text}}", criteria_text)
@@ -629,9 +643,7 @@ async def compare_packages_prompt(
 
 @mcp.prompt()
 async def suggest_alternatives_prompt(
-    package_name: str,
-    reason: str,
-    requirements: str | None = None
+    package_name: str, reason: str, requirements: str | None = None
 ) -> str:
     """Generate a prompt for finding package alternatives."""
     # Step 3: Call Prompt generator
@@ -647,7 +659,7 @@ async def suggest_alternatives_prompt(
         "performance": "performance issues or requirements",
         "licensing": "licensing conflicts or restrictions",
         "maintenance": "poor maintenance or lack of updates",
-        "features": "missing features or functionality gaps"
+        "features": "missing features or functionality gaps",
     }
     reason_text = reason_context.get(reason, reason)
     result = result.replace("{{reason_text}}", reason_text)
@@ -667,10 +679,12 @@ async def suggest_alternatives_prompt(
 async def resolve_dependency_conflicts_prompt(
     conflicts: list[str],
     python_version: str | None = None,
-    project_context: str | None = None
+    project_context: str | None = None,
 ) -> str:
     """Generate a prompt for resolving dependency conflicts."""
-    messages = await resolve_dependency_conflicts(conflicts, python_version, project_context)
+    messages = await resolve_dependency_conflicts(
+        conflicts, python_version, project_context
+    )
     return messages[0].text
 
 
@@ -679,10 +693,12 @@ async def plan_version_upgrade_prompt(
     package_name: str,
     current_version: str,
     target_version: str | None = None,
-    project_size: str | None = None
+    project_size: str | None = None,
 ) -> str:
     """Generate a prompt for planning package version upgrades."""
-    messages = await plan_version_upgrade(package_name, current_version, target_version, project_size)
+    messages = await plan_version_upgrade(
+        package_name, current_version, target_version, project_size
+    )
     return messages[0].text
 
 
@@ -690,10 +706,12 @@ async def plan_version_upgrade_prompt(
 async def audit_security_risks_prompt(
     packages: list[str],
     environment: str | None = None,
-    compliance_requirements: str | None = None
+    compliance_requirements: str | None = None,
 ) -> str:
     """Generate a prompt for security risk auditing of packages."""
-    messages = await audit_security_risks(packages, environment, compliance_requirements)
+    messages = await audit_security_risks(
+        packages, environment, compliance_requirements
+    )
     return messages[0].text
 
 
@@ -703,21 +721,23 @@ async def plan_package_migration_prompt(
     to_package: str,
     codebase_size: str = "medium",
     timeline: str | None = None,
-    team_size: int | None = None
+    team_size: int | None = None,
 ) -> str:
     """Generate a comprehensive package migration plan prompt."""
-    messages = await plan_package_migration(from_package, to_package, codebase_size, timeline, team_size)
+    messages = await plan_package_migration(
+        from_package, to_package, codebase_size, timeline, team_size
+    )
     return messages[0].text
 
 
 @mcp.prompt()
 async def generate_migration_checklist_prompt(
-    migration_type: str,
-    packages_involved: list[str],
-    environment: str = "all"
+    migration_type: str, packages_involved: list[str], environment: str = "all"
 ) -> str:
     """Generate a detailed migration checklist prompt."""
-    messages = await generate_migration_checklist(migration_type, packages_involved, environment)
+    messages = await generate_migration_checklist(
+        migration_type, packages_involved, environment
+    )
     return messages[0].text
 
 
@@ -726,11 +746,13 @@ async def generate_migration_checklist_prompt(
 async def analyze_environment_dependencies_prompt(
     environment_type: str = "local",
     python_version: str | None = None,
-    project_path: str | None = None
+    project_path: str | None = None,
 ) -> str:
     """Generate a prompt for analyzing environment dependencies."""
     # Step 3: Call Prompt generator
-    template = await analyze_environment_dependencies(environment_type, python_version, project_path)
+    template = await analyze_environment_dependencies(
+        environment_type, python_version, project_path
+    )
 
     # Step 5: Parameter replacement
     result = template.replace("{{environment_type}}", environment_type)
@@ -755,11 +777,13 @@ async def analyze_environment_dependencies_prompt(
 async def check_outdated_packages_prompt(
     package_filter: str | None = None,
     severity_level: str = "all",
-    include_dev_dependencies: bool = True
+    include_dev_dependencies: bool = True,
 ) -> str:
     """Generate a prompt for checking outdated packages."""
     # Step 3: Call Prompt generator
-    template = await check_outdated_packages(package_filter, severity_level, include_dev_dependencies)
+    template = await check_outdated_packages(
+        package_filter, severity_level, include_dev_dependencies
+    )
 
     # Step 5: Parameter replacement
     result = template.replace("{{severity_level}}", severity_level)
@@ -786,11 +810,13 @@ async def check_outdated_packages_prompt(
 async def generate_update_plan_prompt(
     update_strategy: str = "balanced",
     environment_constraints: str | None = None,
-    testing_requirements: str | None = None
+    testing_requirements: str | None = None,
 ) -> str:
     """Generate a prompt for creating package update plans."""
     # Step 3: Call Prompt generator
-    template = await generate_update_plan(update_strategy, environment_constraints, testing_requirements)
+    template = await generate_update_plan(
+        update_strategy, environment_constraints, testing_requirements
+    )
 
     # Step 5: Parameter replacement
     result = template.replace("{{strategy}}", update_strategy)
@@ -816,9 +842,7 @@ async def generate_update_plan_prompt(
 # Trending Analysis Prompts
 @mcp.prompt()
 async def analyze_daily_trends_prompt(
-    date: str = "today",
-    category: str | None = None,
-    limit: int = 20
+    date: str = "today", category: str | None = None, limit: int = 20
 ) -> str:
     """Generate a prompt for analyzing daily PyPI trends."""
     # Step 3: Call Prompt generator
@@ -841,9 +865,7 @@ async def analyze_daily_trends_prompt(
 
 @mcp.prompt()
 async def find_trending_packages_prompt(
-    time_period: str = "weekly",
-    trend_type: str = "rising",
-    domain: str | None = None
+    time_period: str = "weekly", trend_type: str = "rising", domain: str | None = None
 ) -> str:
     """Generate a prompt for finding trending packages."""
     # Step 3: Call Prompt generator
@@ -866,9 +888,7 @@ async def find_trending_packages_prompt(
 
 @mcp.prompt()
 async def track_package_updates_prompt(
-    time_range: str = "today",
-    update_type: str = "all",
-    popular_only: bool = False
+    time_range: str = "today", update_type: str = "all", popular_only: bool = False
 ) -> str:
     """Generate a prompt for tracking recent package updates."""
     # Step 3: Call Prompt generator

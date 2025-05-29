@@ -45,7 +45,7 @@ class TestPackageDownloader:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": []
+                "requires_dist": [],
             },
             "releases": {
                 "1.0.0": [
@@ -54,10 +54,10 @@ class TestPackageDownloader:
                         "url": "https://files.pythonhosted.org/packages/test_package-1.0.0-py3-none-any.whl",
                         "packagetype": "bdist_wheel",
                         "md5_digest": "abc123",
-                        "size": 1024
+                        "size": 1024,
                     }
                 ]
-            }
+            },
         }
 
         mock_resolution_result = {
@@ -68,17 +68,19 @@ class TestPackageDownloader:
                     "version": "1.0.0",
                     "dependencies": {"runtime": [], "development": [], "extras": {}},
                     "depth": 0,
-                    "children": {}
+                    "children": {},
                 }
             },
-            "summary": {"total_packages": 1}
+            "summary": {"total_packages": 1},
         }
 
-        with patch.object(downloader.resolver, 'resolve_dependencies') as mock_resolve:
+        with patch.object(downloader.resolver, "resolve_dependencies") as mock_resolve:
             mock_resolve.return_value = mock_resolution_result
 
             # Mock the _download_single_package method directly
-            with patch.object(downloader, '_download_single_package') as mock_download_single:
+            with patch.object(
+                downloader, "_download_single_package"
+            ) as mock_download_single:
                 mock_download_single.return_value = {
                     "package_name": "test-package",
                     "version": "1.0.0",
@@ -88,11 +90,13 @@ class TestPackageDownloader:
                         "file_path": "/tmp/test_package-1.0.0-py3-none-any.whl",
                         "downloaded_size": 1024,
                         "verification": {},
-                        "success": True
-                    }
+                        "success": True,
+                    },
                 }
 
-                result = await downloader.download_package_with_dependencies("test-package")
+                result = await downloader.download_package_with_dependencies(
+                    "test-package"
+                )
 
                 assert result["package_name"] == "test-package"
                 assert "download_results" in result
@@ -106,13 +110,13 @@ class TestPackageDownloader:
             {
                 "filename": "test_package-1.0.0.tar.gz",
                 "packagetype": "sdist",
-                "url": "https://example.com/test_package-1.0.0.tar.gz"
+                "url": "https://example.com/test_package-1.0.0.tar.gz",
             },
             {
                 "filename": "test_package-1.0.0-py3-none-any.whl",
                 "packagetype": "bdist_wheel",
-                "url": "https://example.com/test_package-1.0.0-py3-none-any.whl"
-            }
+                "url": "https://example.com/test_package-1.0.0-py3-none-any.whl",
+            },
         ]
 
         selected = downloader._select_best_file(release_files, prefer_wheel=True)
@@ -125,13 +129,13 @@ class TestPackageDownloader:
             {
                 "filename": "test_package-1.0.0.tar.gz",
                 "packagetype": "sdist",
-                "url": "https://example.com/test_package-1.0.0.tar.gz"
+                "url": "https://example.com/test_package-1.0.0.tar.gz",
             },
             {
                 "filename": "test_package-1.0.0-py3-none-any.whl",
                 "packagetype": "bdist_wheel",
-                "url": "https://example.com/test_package-1.0.0-py3-none-any.whl"
-            }
+                "url": "https://example.com/test_package-1.0.0-py3-none-any.whl",
+            },
         ]
 
         selected = downloader._select_best_file(release_files, prefer_wheel=False)
@@ -144,7 +148,7 @@ class TestPackageDownloader:
             {"filename": "test_package-1.0.0-py38-none-any.whl"},
             {"filename": "test_package-1.0.0-py310-none-any.whl"},
             {"filename": "test_package-1.0.0-py3-none-any.whl"},
-            {"filename": "test_package-1.0.0-cp39-cp39-linux_x86_64.whl"}
+            {"filename": "test_package-1.0.0-cp39-cp39-linux_x86_64.whl"},
         ]
 
         compatible = downloader._filter_compatible_wheels(wheels, "3.10")
@@ -163,7 +167,7 @@ class TestPackageDownloader:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": []
+                "requires_dist": [],
             },
             "releases": {
                 "1.0.0": [
@@ -172,10 +176,10 @@ class TestPackageDownloader:
                         "url": "https://files.pythonhosted.org/packages/test_package-1.0.0-py310-none-any.whl",
                         "packagetype": "bdist_wheel",
                         "md5_digest": "abc123",
-                        "size": 1024
+                        "size": 1024,
                     }
                 ]
-            }
+            },
         }
 
         mock_resolution_result = {
@@ -186,16 +190,17 @@ class TestPackageDownloader:
                     "version": "1.0.0",
                     "dependencies": {"runtime": [], "development": [], "extras": {}},
                     "depth": 0,
-                    "children": {}
+                    "children": {},
                 }
             },
-            "summary": {"total_packages": 1}
+            "summary": {"total_packages": 1},
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class, \
-             patch('httpx.AsyncClient') as mock_httpx_class, \
-             patch.object(downloader.resolver, 'resolve_dependencies') as mock_resolve:
-
+        with (
+            patch("pypi_query_mcp.core.PyPIClient") as mock_client_class,
+            patch("httpx.AsyncClient") as mock_httpx_class,
+            patch.object(downloader.resolver, "resolve_dependencies") as mock_resolve,
+        ):
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
@@ -208,12 +213,13 @@ class TestPackageDownloader:
             mock_response = AsyncMock()
             mock_response.raise_for_status.return_value = None
             mock_response.aiter_bytes.return_value = [b"test content"]
-            mock_httpx_client.stream.return_value.__aenter__.return_value = mock_response
+            mock_httpx_client.stream.return_value.__aenter__.return_value = (
+                mock_response
+            )
 
             with patch("builtins.open", mock_open()):
                 result = await downloader.download_package_with_dependencies(
-                    "test-package",
-                    python_version="3.10"
+                    "test-package", python_version="3.10"
                 )
 
                 assert result["python_version"] == "3.10"
@@ -222,7 +228,9 @@ class TestPackageDownloader:
     async def test_download_package_with_dependencies_function(self, temp_download_dir):
         """Test the standalone download_package_with_dependencies function."""
 
-        with patch('pypi_query_mcp.tools.package_downloader.PackageDownloader') as mock_downloader_class:
+        with patch(
+            "pypi_query_mcp.tools.package_downloader.PackageDownloader"
+        ) as mock_downloader_class:
             # Setup downloader mock
             mock_downloader = AsyncMock()
             mock_downloader_class.return_value = mock_downloader
@@ -236,12 +244,16 @@ class TestPackageDownloader:
                         "test-package": {
                             "name": "test-package",
                             "version": "1.0.0",
-                            "dependencies": {"runtime": [], "development": [], "extras": {}},
+                            "dependencies": {
+                                "runtime": [],
+                                "development": [],
+                                "extras": {},
+                            },
                             "depth": 0,
-                            "children": {}
+                            "children": {},
                         }
                     },
-                    "summary": {"total_packages": 1}
+                    "summary": {"total_packages": 1},
                 },
                 "download_results": {},
                 "failed_downloads": [],
@@ -251,13 +263,12 @@ class TestPackageDownloader:
                     "failed_downloads": 0,
                     "total_downloaded_size": 1024,
                     "download_directory": temp_download_dir,
-                    "success_rate": 100.0
-                }
+                    "success_rate": 100.0,
+                },
             }
 
             result = await download_package_with_dependencies(
-                "test-package",
-                download_dir=temp_download_dir
+                "test-package", download_dir=temp_download_dir
             )
 
             assert result["package_name"] == "test-package"

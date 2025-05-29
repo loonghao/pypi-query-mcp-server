@@ -8,7 +8,7 @@ from pydantic import Field
 
 class Message:
     """Simple message class for prompt templates."""
-    
+
     def __init__(self, text: str, role: str = "user"):
         self.text = text
         self.role = role
@@ -17,15 +17,14 @@ class Message:
 async def analyze_daily_trends(
     date: Annotated[
         str | None,
-        Field(description="Specific date to analyze (YYYY-MM-DD) or 'today'")
+        Field(description="Specific date to analyze (YYYY-MM-DD) or 'today'"),
     ] = "today",
     category: Annotated[
         str | None,
-        Field(description="Package category to focus on (web, data, ml, etc.)")
+        Field(description="Package category to focus on (web, data, ml, etc.)"),
     ] = None,
     limit: Annotated[
-        int,
-        Field(description="Number of top packages to analyze", ge=5, le=50)
+        int, Field(description="Number of top packages to analyze", ge=5, le=50)
     ] = 20,
     ctx: Context | None = None,
 ) -> str:
@@ -33,7 +32,7 @@ async def analyze_daily_trends(
 
     This prompt template helps analyze the most downloaded packages on PyPI
     for a specific day and understand trending patterns.
-    
+
     Returns a template string with {{date}}, {{category_filter}}, and {{limit}} variables.
     """
     template = """Please analyze the daily PyPI download trends for {{date}}{{category_filter}}.
@@ -119,15 +118,15 @@ Include specific download numbers, growth percentages, and trend analysis."""
 async def find_trending_packages(
     time_period: Annotated[
         Literal["daily", "weekly", "monthly"],
-        Field(description="Time period for trend analysis")
+        Field(description="Time period for trend analysis"),
     ] = "weekly",
     trend_type: Annotated[
         Literal["rising", "declining", "new", "all"],
-        Field(description="Type of trends to focus on")
+        Field(description="Type of trends to focus on"),
     ] = "rising",
     domain: Annotated[
         str | None,
-        Field(description="Specific domain or category (web, ai, data, etc.)")
+        Field(description="Specific domain or category (web, ai, data, etc.)"),
     ] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -135,7 +134,7 @@ async def find_trending_packages(
 
     This prompt template helps identify packages that are trending up or down
     in the PyPI ecosystem over specific time periods.
-    
+
     Returns a template string with {{time_period}}, {{trend_type}}, and {{domain_filter}} variables.
     """
     template = """Please identify {{trend_type}} trending Python packages over the {{time_period}} period{{domain_filter}}.
@@ -242,15 +241,14 @@ Include specific trend data, growth metrics, and actionable recommendations."""
 async def track_package_updates(
     time_range: Annotated[
         Literal["today", "week", "month"],
-        Field(description="Time range for update tracking")
+        Field(description="Time range for update tracking"),
     ] = "today",
     update_type: Annotated[
         Literal["all", "major", "security", "new"],
-        Field(description="Type of updates to track")
+        Field(description="Type of updates to track"),
     ] = "all",
     popular_only: Annotated[
-        bool,
-        Field(description="Focus only on popular packages (>1M downloads)")
+        bool, Field(description="Focus only on popular packages (>1M downloads)")
     ] = False,
     ctx: Context | None = None,
 ) -> str:
@@ -258,7 +256,7 @@ async def track_package_updates(
 
     This prompt template helps track and analyze recent package updates
     on PyPI with filtering and categorization options.
-    
+
     Returns a template string with {{time_range}}, {{update_type}}, and {{popularity_filter}} variables.
     """
     template = """Please track and analyze Python package updates from {{time_range}}{{popularity_filter}}.

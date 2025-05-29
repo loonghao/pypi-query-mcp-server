@@ -34,7 +34,7 @@ class PackageDownloader:
         include_dev: bool = False,
         prefer_wheel: bool = True,
         verify_checksums: bool = True,
-        max_depth: int = 5
+        max_depth: int = 5,
     ) -> dict[str, Any]:
         """Download a package and all its dependencies.
 
@@ -62,7 +62,7 @@ class PackageDownloader:
                 python_version=python_version,
                 include_extras=include_extras,
                 include_dev=include_dev,
-                max_depth=max_depth
+                max_depth=max_depth,
             )
 
             dependency_tree = resolution_result["dependency_tree"]
@@ -78,19 +78,18 @@ class PackageDownloader:
                         version=pkg_info["version"],
                         python_version=python_version,
                         prefer_wheel=prefer_wheel,
-                        verify_checksums=verify_checksums
+                        verify_checksums=verify_checksums,
                     )
                     download_results[pkg_name] = result
 
                 except Exception as e:
                     logger.error(f"Failed to download {pkg_name}: {e}")
-                    failed_downloads.append({
-                        "package": pkg_name,
-                        "error": str(e)
-                    })
+                    failed_downloads.append({"package": pkg_name, "error": str(e)})
 
             # Generate summary
-            summary = self._generate_download_summary(download_results, failed_downloads)
+            summary = self._generate_download_summary(
+                download_results, failed_downloads
+            )
 
             return {
                 "package_name": package_name,
@@ -99,7 +98,7 @@ class PackageDownloader:
                 "resolution_result": resolution_result,
                 "download_results": download_results,
                 "failed_downloads": failed_downloads,
-                "summary": summary
+                "summary": summary,
             }
 
         except PyPIError:
@@ -114,7 +113,7 @@ class PackageDownloader:
         version: str | None = None,
         python_version: str | None = None,
         prefer_wheel: bool = True,
-        verify_checksums: bool = True
+        verify_checksums: bool = True,
     ) -> dict[str, Any]:
         """Download a single package."""
 
@@ -129,12 +128,16 @@ class PackageDownloader:
         # Determine version to download
         target_version = version or info.get("version")
         if not target_version or target_version not in releases:
-            raise PackageNotFoundError(f"Version {target_version} not found for {package_name}")
+            raise PackageNotFoundError(
+                f"Version {target_version} not found for {package_name}"
+            )
 
         # Get release files
         release_files = releases[target_version]
         if not release_files:
-            raise PackageNotFoundError(f"No files found for {package_name} {target_version}")
+            raise PackageNotFoundError(
+                f"No files found for {package_name} {target_version}"
+            )
 
         # Select best file to download
         selected_file = self._select_best_file(
@@ -142,25 +145,25 @@ class PackageDownloader:
         )
 
         if not selected_file:
-            raise PackageNotFoundError(f"No suitable file found for {package_name} {target_version}")
+            raise PackageNotFoundError(
+                f"No suitable file found for {package_name} {target_version}"
+            )
 
         # Download the file
-        download_result = await self._download_file(
-            selected_file, verify_checksums
-        )
+        download_result = await self._download_file(selected_file, verify_checksums)
 
         return {
             "package_name": package_name,
             "version": target_version,
             "file_info": selected_file,
-            "download_result": download_result
+            "download_result": download_result,
         }
 
     def _select_best_file(
         self,
         release_files: list[dict[str, Any]],
         python_version: str | None = None,
-        prefer_wheel: bool = True
+        prefer_wheel: bool = True,
     ) -> dict[str, Any] | None:
         """Select the best file to download from available release files."""
 
@@ -172,7 +175,9 @@ class PackageDownloader:
         if prefer_wheel and wheels:
             # Try to find compatible wheel
             if python_version:
-                compatible_wheels = self._filter_compatible_wheels(wheels, python_version)
+                compatible_wheels = self._filter_compatible_wheels(
+                    wheels, python_version
+                )
                 if compatible_wheels:
                     return compatible_wheels[0]
 
@@ -187,9 +192,7 @@ class PackageDownloader:
         return release_files[0] if release_files else None
 
     def _filter_compatible_wheels(
-        self,
-        wheels: list[dict[str, Any]],
-        python_version: str
+        self, wheels: list[dict[str, Any]], python_version: str
     ) -> list[dict[str, Any]]:
         """Filter wheels compatible with the specified Python version."""
 
@@ -204,18 +207,18 @@ class PackageDownloader:
             filename = wheel.get("filename", "")
 
             # Check for Python version in filename
-            if (f"py{major_minor_nodot}" in filename or
-                f"cp{major_minor_nodot}" in filename or
-                "py3" in filename or
-                "py2.py3" in filename):
+            if (
+                f"py{major_minor_nodot}" in filename
+                or f"cp{major_minor_nodot}" in filename
+                or "py3" in filename
+                or "py2.py3" in filename
+            ):
                 compatible.append(wheel)
 
         return compatible
 
     async def _download_file(
-        self,
-        file_info: dict[str, Any],
-        verify_checksums: bool = True
+        self, file_info: dict[str, Any], verify_checksums: bool = True
     ) -> dict[str, Any]:
         """Download a single file."""
 
@@ -265,13 +268,11 @@ class PackageDownloader:
             "file_path": str(file_path),
             "downloaded_size": downloaded_size,
             "verification": verification_result,
-            "success": True
+            "success": True,
         }
 
     def _generate_download_summary(
-        self,
-        download_results: dict[str, Any],
-        failed_downloads: list[dict[str, Any]]
+        self, download_results: dict[str, Any], failed_downloads: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Generate download summary statistics."""
 
@@ -288,8 +289,11 @@ class PackageDownloader:
             "failed_downloads": failed_count,
             "total_downloaded_size": total_size,
             "download_directory": str(self.download_dir),
-            "success_rate": successful_downloads / (successful_downloads + failed_count) * 100
-            if (successful_downloads + failed_count) > 0 else 0
+            "success_rate": successful_downloads
+            / (successful_downloads + failed_count)
+            * 100
+            if (successful_downloads + failed_count) > 0
+            else 0,
         }
 
 
@@ -301,7 +305,7 @@ async def download_package_with_dependencies(
     include_dev: bool = False,
     prefer_wheel: bool = True,
     verify_checksums: bool = True,
-    max_depth: int = 5
+    max_depth: int = 5,
 ) -> dict[str, Any]:
     """Download a package and its dependencies to local directory.
 
@@ -326,5 +330,5 @@ async def download_package_with_dependencies(
         include_dev=include_dev,
         prefer_wheel=prefer_wheel,
         verify_checksums=verify_checksums,
-        max_depth=max_depth
+        max_depth=max_depth,
     )

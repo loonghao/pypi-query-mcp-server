@@ -40,7 +40,9 @@ async def get_package_download_stats(
 
             # Get basic package info for metadata
             try:
-                package_info = await pypi_client.get_package_info(package_name, use_cache)
+                package_info = await pypi_client.get_package_info(
+                    package_name, use_cache
+                )
                 package_metadata = {
                     "name": package_info.get("info", {}).get("name", package_name),
                     "version": package_info.get("info", {}).get("version", "unknown"),
@@ -48,10 +50,14 @@ async def get_package_download_stats(
                     "author": package_info.get("info", {}).get("author", ""),
                     "home_page": package_info.get("info", {}).get("home_page", ""),
                     "project_url": package_info.get("info", {}).get("project_url", ""),
-                    "project_urls": package_info.get("info", {}).get("project_urls", {}),
+                    "project_urls": package_info.get("info", {}).get(
+                        "project_urls", {}
+                    ),
                 }
             except Exception as e:
-                logger.warning(f"Could not fetch package metadata for {package_name}: {e}")
+                logger.warning(
+                    f"Could not fetch package metadata for {package_name}: {e}"
+                )
                 package_metadata = {"name": package_name}
 
             # Extract download data
@@ -143,10 +149,26 @@ async def get_top_packages_by_downloads(
     """
     # Known popular packages (this would ideally come from an API)
     popular_packages = [
-        "boto3", "urllib3", "requests", "certifi", "charset-normalizer",
-        "idna", "setuptools", "python-dateutil", "six", "botocore",
-        "typing-extensions", "packaging", "numpy", "pip", "pyyaml",
-        "cryptography", "click", "jinja2", "markupsafe", "wheel"
+        "boto3",
+        "urllib3",
+        "requests",
+        "certifi",
+        "charset-normalizer",
+        "idna",
+        "setuptools",
+        "python-dateutil",
+        "six",
+        "botocore",
+        "typing-extensions",
+        "packaging",
+        "numpy",
+        "pip",
+        "pyyaml",
+        "cryptography",
+        "click",
+        "jinja2",
+        "markupsafe",
+        "wheel",
     ]
 
     async with PyPIStatsClient() as stats_client:
@@ -163,12 +185,14 @@ async def get_top_packages_by_downloads(
                     download_data = stats.get("data", {})
                     download_count = _extract_download_count(download_data, period)
 
-                    top_packages.append({
-                        "rank": i + 1,
-                        "package": package_name,
-                        "downloads": download_count,
-                        "period": period,
-                    })
+                    top_packages.append(
+                        {
+                            "rank": i + 1,
+                            "package": package_name,
+                            "downloads": download_count,
+                            "period": period,
+                        }
+                    )
 
                 except Exception as e:
                     logger.warning(f"Could not get stats for {package_name}: {e}")
@@ -221,7 +245,9 @@ def _analyze_download_stats(download_data: dict[str, Any]) -> dict[str, Any]:
             analysis["periods_available"].append(period)
             analysis["total_downloads"] += count
 
-            if analysis["highest_period"] is None or count > download_data.get(analysis["highest_period"], 0):
+            if analysis["highest_period"] is None or count > download_data.get(
+                analysis["highest_period"], 0
+            ):
                 analysis["highest_period"] = period
 
     # Calculate growth indicators
@@ -230,15 +256,21 @@ def _analyze_download_stats(download_data: dict[str, Any]) -> dict[str, Any]:
     last_month = download_data.get("last_month", 0)
 
     if last_day and last_week:
-        analysis["growth_indicators"]["daily_vs_weekly"] = round(last_day * 7 / last_week, 2)
+        analysis["growth_indicators"]["daily_vs_weekly"] = round(
+            last_day * 7 / last_week, 2
+        )
 
     if last_week and last_month:
-        analysis["growth_indicators"]["weekly_vs_monthly"] = round(last_week * 4 / last_month, 2)
+        analysis["growth_indicators"]["weekly_vs_monthly"] = round(
+            last_week * 4 / last_month, 2
+        )
 
     return analysis
 
 
-def _analyze_download_trends(time_series_data: list[dict], include_mirrors: bool) -> dict[str, Any]:
+def _analyze_download_trends(
+    time_series_data: list[dict], include_mirrors: bool
+) -> dict[str, Any]:
     """Analyze download trends from time series data.
 
     Args:
@@ -263,8 +295,7 @@ def _analyze_download_trends(time_series_data: list[dict], include_mirrors: bool
     # Filter data based on mirror preference
     category_filter = "with_mirrors" if include_mirrors else "without_mirrors"
     filtered_data = [
-        item for item in time_series_data
-        if item.get("category") == category_filter
+        item for item in time_series_data if item.get("category") == category_filter
     ]
 
     if not filtered_data:
