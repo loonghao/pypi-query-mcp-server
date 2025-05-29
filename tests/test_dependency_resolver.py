@@ -36,14 +36,11 @@ class TestDependencyResolver:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": [
-                    "requests>=2.25.0",
-                    "click>=8.0.0"
-                ]
+                "requires_dist": ["requests>=2.25.0", "click>=8.0.0"],
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
@@ -64,19 +61,18 @@ class TestDependencyResolver:
                 "requires_python": ">=3.8",
                 "requires_dist": [
                     "requests>=2.25.0",
-                    "typing-extensions>=4.0.0; python_version<'3.10'"
-                ]
+                    "typing-extensions>=4.0.0; python_version<'3.10'",
+                ],
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
 
             result = await resolver.resolve_dependencies(
-                "test-package",
-                python_version="3.11"
+                "test-package", python_version="3.11"
             )
 
             assert result["python_version"] == "3.11"
@@ -90,21 +86,17 @@ class TestDependencyResolver:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": [
-                    "requests>=2.25.0",
-                    "pytest>=6.0.0; extra=='test'"
-                ]
+                "requires_dist": ["requests>=2.25.0", "pytest>=6.0.0; extra=='test'"],
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
 
             result = await resolver.resolve_dependencies(
-                "test-package",
-                include_extras=["test"]
+                "test-package", include_extras=["test"]
             )
 
             assert result["include_extras"] == ["test"]
@@ -118,19 +110,16 @@ class TestDependencyResolver:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": ["requests>=2.25.0"]
+                "requires_dist": ["requests>=2.25.0"],
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
 
-            result = await resolver.resolve_dependencies(
-                "test-package",
-                max_depth=1
-            )
+            result = await resolver.resolve_dependencies("test-package", max_depth=1)
 
             assert result["summary"]["max_depth"] <= 1
 
@@ -142,11 +131,11 @@ class TestDependencyResolver:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": ["requests>=2.25.0"]
+                "requires_dist": ["requests>=2.25.0"],
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
@@ -167,11 +156,11 @@ class TestDependencyResolver:
                 "name": "test-package",
                 "version": "1.0.0",
                 "requires_python": ">=3.8",
-                "requires_dist": ["test-package>=1.0.0"]  # Self-dependency
+                "requires_dist": ["test-package>=1.0.0"],  # Self-dependency
             }
         }
 
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_data
@@ -183,10 +172,12 @@ class TestDependencyResolver:
     @pytest.mark.asyncio
     async def test_package_not_found_handling(self, resolver):
         """Test handling of packages that are not found."""
-        with patch('pypi_query_mcp.core.PyPIClient') as mock_client_class:
+        with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            mock_client.get_package_info.side_effect = PackageNotFoundError("Package not found")
+            mock_client.get_package_info.side_effect = PackageNotFoundError(
+                "Package not found"
+            )
 
             with pytest.raises(PackageNotFoundError):
                 await resolver.resolve_dependencies("nonexistent-package")

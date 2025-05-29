@@ -42,9 +42,12 @@ class TestDownloadStats:
             }
         }
 
-        with patch("pypi_query_mcp.tools.download_stats.PyPIStatsClient") as mock_stats_client, \
-             patch("pypi_query_mcp.tools.download_stats.PyPIClient") as mock_pypi_client:
-
+        with (
+            patch(
+                "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+            ) as mock_stats_client,
+            patch("pypi_query_mcp.tools.download_stats.PyPIClient") as mock_pypi_client,
+        ):
             # Setup mocks
             mock_stats_instance = AsyncMock()
             mock_stats_instance.get_recent_downloads.return_value = mock_stats_data
@@ -69,9 +72,13 @@ class TestDownloadStats:
     @pytest.mark.asyncio
     async def test_get_package_download_stats_package_not_found(self):
         """Test package download stats with non-existent package."""
-        with patch("pypi_query_mcp.tools.download_stats.PyPIStatsClient") as mock_stats_client:
+        with patch(
+            "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+        ) as mock_stats_client:
             mock_stats_instance = AsyncMock()
-            mock_stats_instance.get_recent_downloads.side_effect = PackageNotFoundError("nonexistent")
+            mock_stats_instance.get_recent_downloads.side_effect = PackageNotFoundError(
+                "nonexistent"
+            )
             mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance
 
             with pytest.raises(PackageNotFoundError):
@@ -82,8 +89,16 @@ class TestDownloadStats:
         """Test successful package download trends retrieval."""
         mock_trends_data = {
             "data": [
-                {"category": "without_mirrors", "date": "2024-01-01", "downloads": 1000},
-                {"category": "without_mirrors", "date": "2024-01-02", "downloads": 1200},
+                {
+                    "category": "without_mirrors",
+                    "date": "2024-01-01",
+                    "downloads": 1000,
+                },
+                {
+                    "category": "without_mirrors",
+                    "date": "2024-01-02",
+                    "downloads": 1200,
+                },
                 {"category": "with_mirrors", "date": "2024-01-01", "downloads": 1100},
                 {"category": "with_mirrors", "date": "2024-01-02", "downloads": 1300},
             ],
@@ -91,18 +106,24 @@ class TestDownloadStats:
             "type": "overall_downloads",
         }
 
-        with patch("pypi_query_mcp.tools.download_stats.PyPIStatsClient") as mock_stats_client:
+        with patch(
+            "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+        ) as mock_stats_client:
             mock_stats_instance = AsyncMock()
             mock_stats_instance.get_overall_downloads.return_value = mock_trends_data
             mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance
 
-            result = await get_package_download_trends("test-package", include_mirrors=False)
+            result = await get_package_download_trends(
+                "test-package", include_mirrors=False
+            )
 
             assert result["package"] == "test-package"
             assert result["include_mirrors"] is False
             assert len(result["time_series"]) == 4
             assert "trend_analysis" in result
-            assert result["trend_analysis"]["data_points"] == 2  # Only without_mirrors data
+            assert (
+                result["trend_analysis"]["data_points"] == 2
+            )  # Only without_mirrors data
 
     @pytest.mark.asyncio
     async def test_get_top_packages_by_downloads_success(self):
@@ -115,7 +136,9 @@ class TestDownloadStats:
             "type": "recent_downloads",
         }
 
-        with patch("pypi_query_mcp.tools.download_stats.PyPIStatsClient") as mock_stats_client:
+        with patch(
+            "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+        ) as mock_stats_client:
             mock_stats_instance = AsyncMock()
             mock_stats_instance.get_recent_downloads.return_value = mock_stats_data
             mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance

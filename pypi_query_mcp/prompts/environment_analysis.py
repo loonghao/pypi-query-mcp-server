@@ -8,7 +8,7 @@ from pydantic import Field
 
 class Message:
     """Simple message class for prompt templates."""
-    
+
     def __init__(self, text: str, role: str = "user"):
         self.text = text
         self.role = role
@@ -16,16 +16,13 @@ class Message:
 
 async def analyze_environment_dependencies(
     environment_type: Annotated[
-        str,
-        Field(description="Type of environment (local, virtual, docker, conda)")
+        str, Field(description="Type of environment (local, virtual, docker, conda)")
     ] = "local",
     python_version: Annotated[
-        str | None,
-        Field(description="Python version in the environment")
+        str | None, Field(description="Python version in the environment")
     ] = None,
     project_path: Annotated[
-        str | None,
-        Field(description="Path to the project directory")
+        str | None, Field(description="Path to the project directory")
     ] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -33,7 +30,7 @@ async def analyze_environment_dependencies(
 
     This prompt template helps analyze the current Python environment dependencies,
     check for outdated packages, and provide upgrade recommendations.
-    
+
     Returns a template string with {{environment_type}}, {{python_version}}, and {{project_path}} variables.
     """
     template = """Please analyze the Python environment dependencies {{environment_info}}.
@@ -98,16 +95,13 @@ Please include specific commands for package management and update procedures.""
 
 async def check_outdated_packages(
     package_filter: Annotated[
-        str | None,
-        Field(description="Filter packages by name pattern (optional)")
+        str | None, Field(description="Filter packages by name pattern (optional)")
     ] = None,
     severity_level: Annotated[
-        str,
-        Field(description="Focus level: all, security, major, minor")
+        str, Field(description="Focus level: all, security, major, minor")
     ] = "all",
     include_dev_dependencies: Annotated[
-        bool,
-        Field(description="Include development dependencies in analysis")
+        bool, Field(description="Include development dependencies in analysis")
     ] = True,
     ctx: Context | None = None,
 ) -> str:
@@ -115,7 +109,7 @@ async def check_outdated_packages(
 
     This prompt template helps identify and prioritize outdated packages
     in the current environment with specific focus criteria.
-    
+
     Returns a template string with {{package_filter}}, {{severity_level}}, and {{dev_deps}} variables.
     """
     template = """Please check for outdated packages in my Python environment {{filter_info}}.
@@ -187,16 +181,13 @@ Include specific pip/uv commands for each update category."""
 
 async def generate_update_plan(
     update_strategy: Annotated[
-        str,
-        Field(description="Update strategy: conservative, balanced, aggressive")
+        str, Field(description="Update strategy: conservative, balanced, aggressive")
     ] = "balanced",
     environment_constraints: Annotated[
-        str | None,
-        Field(description="Environment constraints or requirements")
+        str | None, Field(description="Environment constraints or requirements")
     ] = None,
     testing_requirements: Annotated[
-        str | None,
-        Field(description="Testing requirements before updates")
+        str | None, Field(description="Testing requirements before updates")
     ] = None,
     ctx: Context | None = None,
 ) -> str:
@@ -204,7 +195,7 @@ async def generate_update_plan(
 
     This prompt template helps create comprehensive update plans for Python environments
     with specific strategies and constraints.
-    
+
     Returns a template string with {{strategy}}, {{constraints}}, and {{testing}} variables.
     """
     template = """Please create a comprehensive package update plan using a {{strategy}} strategy{{constraints_text}}{{testing_text}}.

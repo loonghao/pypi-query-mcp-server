@@ -54,14 +54,14 @@ async def demo_package_download_stats():
                 print(f"  Total Downloads: {analysis.get('total_downloads', 0):,}")
                 print(f"  Highest Period: {analysis.get('highest_period', 'N/A')}")
 
-                growth = analysis.get('growth_indicators', {})
+                growth = analysis.get("growth_indicators", {})
                 if growth:
                     print("  Growth Indicators:")
                     for indicator, value in growth.items():
                         print(f"    {indicator}: {value}")
 
             # Display repository info if available
-            project_urls = metadata.get('project_urls', {})
+            project_urls = metadata.get("project_urls", {})
             if project_urls:
                 print("\nRepository Links:")
                 for name, url in project_urls.items():
@@ -98,22 +98,28 @@ async def demo_package_download_trends():
         print(f"Trend Direction: {trend_analysis.get('trend_direction', 'unknown')}")
 
         # Display date range
-        date_range = trend_analysis.get('date_range', {})
+        date_range = trend_analysis.get("date_range", {})
         if date_range:
             print(f"Date Range: {date_range.get('start')} to {date_range.get('end')}")
 
         # Display peak day
-        peak_day = trend_analysis.get('peak_day', {})
+        peak_day = trend_analysis.get("peak_day", {})
         if peak_day:
-            print(f"Peak Day: {peak_day.get('date')} ({peak_day.get('downloads', 0):,} downloads)")
+            print(
+                f"Peak Day: {peak_day.get('date')} ({peak_day.get('downloads', 0):,} downloads)"
+            )
 
         # Show recent data points (last 7 days)
         if time_series:
             print("\nRecent Download Data (last 7 days):")
-            recent_data = [item for item in time_series if item.get('category') == 'without_mirrors'][-7:]
+            recent_data = [
+                item
+                for item in time_series
+                if item.get("category") == "without_mirrors"
+            ][-7:]
             for item in recent_data:
-                date = item.get('date', 'unknown')
-                downloads = item.get('downloads', 0)
+                date = item.get("date", "unknown")
+                downloads = item.get("downloads", 0)
                 print(f"  {date}: {downloads:,} downloads")
 
     except Exception as e:
@@ -176,11 +182,13 @@ async def demo_package_comparison():
             downloads = stats.get("downloads", {})
             last_month = downloads.get("last_month", 0)
 
-            comparison_data.append({
-                "name": framework,
-                "downloads": last_month,
-                "metadata": stats.get("metadata", {}),
-            })
+            comparison_data.append(
+                {
+                    "name": framework,
+                    "downloads": last_month,
+                    "metadata": stats.get("metadata", {}),
+                }
+            )
 
         except Exception as e:
             print(f"❌ Error getting stats for {framework}: {e}")

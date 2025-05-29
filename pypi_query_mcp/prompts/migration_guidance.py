@@ -19,15 +19,17 @@ async def plan_package_migration(
     to_package: Annotated[str, Field(description="Package to migrate to")],
     codebase_size: Annotated[
         Literal["small", "medium", "large", "enterprise"],
-        Field(description="Size of the codebase being migrated")
+        Field(description="Size of the codebase being migrated"),
     ] = "medium",
     timeline: Annotated[
         str | None,
-        Field(description="Desired timeline for migration (e.g., '2 weeks', '1 month')")
+        Field(
+            description="Desired timeline for migration (e.g., '2 weeks', '1 month')"
+        ),
     ] = None,
     team_size: Annotated[
         int | None,
-        Field(description="Number of developers involved in migration", ge=1, le=50)
+        Field(description="Number of developers involved in migration", ge=1, le=50),
     ] = None,
     ctx: Context | None = None,
 ) -> list[Message]:
@@ -126,16 +128,21 @@ Please provide specific code examples, commands, and detailed timelines."""
 
 async def generate_migration_checklist(
     migration_type: Annotated[
-        Literal["package_replacement", "version_upgrade", "framework_migration", "dependency_cleanup"],
-        Field(description="Type of migration being performed")
+        Literal[
+            "package_replacement",
+            "version_upgrade",
+            "framework_migration",
+            "dependency_cleanup",
+        ],
+        Field(description="Type of migration being performed"),
     ],
     packages_involved: Annotated[
         list[str],
-        Field(description="List of packages involved in the migration", min_length=1)
+        Field(description="List of packages involved in the migration", min_length=1),
     ],
     environment: Annotated[
         Literal["development", "staging", "production", "all"],
-        Field(description="Target environment for migration")
+        Field(description="Target environment for migration"),
     ] = "all",
     ctx: Context | None = None,
 ) -> list[Message]:
@@ -150,7 +157,7 @@ async def generate_migration_checklist(
         "package_replacement": "replacing one package with another",
         "version_upgrade": "upgrading package versions",
         "framework_migration": "migrating between frameworks",
-        "dependency_cleanup": "cleaning up and optimizing dependencies"
+        "dependency_cleanup": "cleaning up and optimizing dependencies",
     }
 
     context_text = migration_contexts.get(migration_type, migration_type)
