@@ -186,6 +186,124 @@ Generate a detailed migration checklist prompt.
 }
 ```
 
+### Environment Analysis Templates
+
+#### 9. `analyze_environment_dependencies`
+Generate a prompt for analyzing current environment dependencies.
+
+**Parameters:**
+- `environment_type` (optional): Type of environment (local, virtual, docker, conda)
+- `python_version` (optional): Python version in the environment
+- `project_path` (optional): Path to the project directory
+
+**Use Case:** When you need to analyze your current Python environment and check for outdated packages.
+
+**Example:**
+```json
+{
+  "environment_type": "virtual",
+  "python_version": "3.11",
+  "project_path": "/path/to/project"
+}
+```
+
+#### 10. `check_outdated_packages`
+Generate a prompt for checking outdated packages with update priorities.
+
+**Parameters:**
+- `package_filter` (optional): Filter packages by name pattern
+- `severity_level` (optional): Focus level (all, security, major, minor)
+- `include_dev_dependencies` (optional): Include development dependencies
+
+**Use Case:** When you want to identify and prioritize package updates.
+
+**Example:**
+```json
+{
+  "package_filter": "django*",
+  "severity_level": "security",
+  "include_dev_dependencies": true
+}
+```
+
+#### 11. `generate_update_plan`
+Generate a prompt for creating comprehensive package update plans.
+
+**Parameters:**
+- `update_strategy` (optional): Update strategy (conservative, balanced, aggressive)
+- `environment_constraints` (optional): Environment constraints or requirements
+- `testing_requirements` (optional): Testing requirements before updates
+
+**Use Case:** When you need a structured plan for updating packages in your environment.
+
+**Example:**
+```json
+{
+  "update_strategy": "balanced",
+  "environment_constraints": "Production environment, zero downtime required",
+  "testing_requirements": "Full test suite + integration tests"
+}
+```
+
+### Trending Analysis Templates
+
+#### 12. `analyze_daily_trends`
+Generate a prompt for analyzing daily PyPI download trends.
+
+**Parameters:**
+- `date` (optional): Specific date to analyze (YYYY-MM-DD) or 'today'
+- `category` (optional): Package category to focus on (web, data, ml, etc.)
+- `limit` (optional): Number of top packages to analyze (5-50)
+
+**Use Case:** When you want to understand what packages are trending on PyPI.
+
+**Example:**
+```json
+{
+  "date": "today",
+  "category": "machine-learning",
+  "limit": 20
+}
+```
+
+#### 13. `find_trending_packages`
+Generate a prompt for discovering trending packages over time periods.
+
+**Parameters:**
+- `time_period` (optional): Time period for trend analysis (daily, weekly, monthly)
+- `trend_type` (optional): Type of trends to focus on (rising, declining, new, all)
+- `domain` (optional): Specific domain or category (web, ai, data, etc.)
+
+**Use Case:** When you want to discover packages that are gaining or losing popularity.
+
+**Example:**
+```json
+{
+  "time_period": "weekly",
+  "trend_type": "rising",
+  "domain": "web-development"
+}
+```
+
+#### 14. `track_package_updates`
+Generate a prompt for tracking recent package updates and releases.
+
+**Parameters:**
+- `time_range` (optional): Time range for update tracking (today, week, month)
+- `update_type` (optional): Type of updates to track (all, major, security, new)
+- `popular_only` (optional): Focus only on popular packages (>1M downloads)
+
+**Use Case:** When you want to stay informed about recent package updates and releases.
+
+**Example:**
+```json
+{
+  "time_range": "week",
+  "update_type": "security",
+  "popular_only": true
+}
+```
+
 ## 🚀 Usage Examples
 
 ### In Claude Desktop
