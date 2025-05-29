@@ -563,15 +563,36 @@ async def get_top_downloaded_packages(
         }
 
 
-# Register prompt templates
+# Register prompt templates following standard MCP workflow:
+# 1. User calls tool → MCP client sends request
+# 2. Tool function executes → Collects necessary data and parameters
+# 3. Call Prompt generator → Pass parameters to corresponding generator
+# 4. Load template → Get template with {{parameter}} placeholders
+# 5. Parameter replacement → Replace {{parameter_name}} with actual values
+# 6. Environment variable customization → Apply user's custom prompt words
+# 7. Return final prompt → As tool's response back to AI
+
 @mcp.prompt()
 async def analyze_package_quality_prompt(
     package_name: str,
     version: str | None = None
 ) -> str:
     """Generate a comprehensive quality analysis prompt for a PyPI package."""
-    messages = await analyze_package_quality(package_name, version)
-    return messages[0].text
+    # Step 3: Call Prompt generator
+    template = await analyze_package_quality(package_name, version)
+
+    # Step 5: Parameter replacement - replace {{parameter_name}} with actual values
+    result = template.replace("{{package_name}}", package_name)
+
+    # Handle version parameter
+    if version:
+        version_text = f"version {version}"
+    else:
+        version_text = ""
+    result = result.replace("{{version_text}}", version_text)
+
+    # Step 7: Return final prompt
+    return result
 
 
 @mcp.prompt()
@@ -581,8 +602,23 @@ async def compare_packages_prompt(
     criteria: list[str] | None = None
 ) -> str:
     """Generate a detailed comparison prompt for multiple PyPI packages."""
-    messages = await compare_packages(packages, use_case, criteria)
-    return messages[0].text
+    # Step 3: Call Prompt generator
+    template = await compare_packages(packages, use_case, criteria)
+
+    # Step 5: Parameter replacement
+    packages_text = ", ".join(f"'{pkg}'" for pkg in packages)
+    result = template.replace("{{packages_text}}", packages_text)
+    result = result.replace("{{use_case}}", use_case)
+
+    # Handle criteria parameter
+    if criteria:
+        criteria_text = f"\n\nFocus particularly on these criteria: {', '.join(criteria)}"
+    else:
+        criteria_text = ""
+    result = result.replace("{{criteria_text}}", criteria_text)
+
+    # Step 7: Return final prompt
+    return result
 
 
 @mcp.prompt()
@@ -592,8 +628,33 @@ async def suggest_alternatives_prompt(
     requirements: str | None = None
 ) -> str:
     """Generate a prompt for finding package alternatives."""
-    messages = await suggest_alternatives(package_name, reason, requirements)
-    return messages[0].text
+    # Step 3: Call Prompt generator
+    template = await suggest_alternatives(package_name, reason, requirements)
+
+    # Step 5: Parameter replacement
+    result = template.replace("{{package_name}}", package_name)
+
+    # Handle reason parameter with context mapping
+    reason_context = {
+        "deprecated": "the package is deprecated or no longer maintained",
+        "security": "security vulnerabilities or concerns",
+        "performance": "performance issues or requirements",
+        "licensing": "licensing conflicts or restrictions",
+        "maintenance": "poor maintenance or lack of updates",
+        "features": "missing features or functionality gaps"
+    }
+    reason_text = reason_context.get(reason, reason)
+    result = result.replace("{{reason_text}}", reason_text)
+
+    # Handle requirements parameter
+    if requirements:
+        requirements_text = f"\n\nSpecific requirements: {requirements}"
+    else:
+        requirements_text = ""
+    result = result.replace("{{requirements_text}}", requirements_text)
+
+    # Step 7: Return final prompt
+    return result
 
 
 @mcp.prompt()
