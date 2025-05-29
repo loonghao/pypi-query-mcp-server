@@ -7,6 +7,16 @@ import click
 from fastmcp import FastMCP
 
 from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
+from .prompts import (
+    analyze_package_quality,
+    audit_security_risks,
+    compare_packages,
+    generate_migration_checklist,
+    plan_package_migration,
+    plan_version_upgrade,
+    resolve_dependency_conflicts,
+    suggest_alternatives,
+)
 from .tools import (
     check_python_compatibility,
     download_package_with_dependencies,
@@ -551,6 +561,97 @@ async def get_top_downloaded_packages(
             "period": period,
             "limit": limit,
         }
+
+
+# Register prompt templates
+@mcp.prompt()
+async def analyze_package_quality_prompt(
+    package_name: str,
+    version: str | None = None
+) -> str:
+    """Generate a comprehensive quality analysis prompt for a PyPI package."""
+    messages = await analyze_package_quality(package_name, version)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def compare_packages_prompt(
+    packages: list[str],
+    use_case: str,
+    criteria: list[str] | None = None
+) -> str:
+    """Generate a detailed comparison prompt for multiple PyPI packages."""
+    messages = await compare_packages(packages, use_case, criteria)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def suggest_alternatives_prompt(
+    package_name: str,
+    reason: str,
+    requirements: str | None = None
+) -> str:
+    """Generate a prompt for finding package alternatives."""
+    messages = await suggest_alternatives(package_name, reason, requirements)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def resolve_dependency_conflicts_prompt(
+    conflicts: list[str],
+    python_version: str | None = None,
+    project_context: str | None = None
+) -> str:
+    """Generate a prompt for resolving dependency conflicts."""
+    messages = await resolve_dependency_conflicts(conflicts, python_version, project_context)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def plan_version_upgrade_prompt(
+    package_name: str,
+    current_version: str,
+    target_version: str | None = None,
+    project_size: str | None = None
+) -> str:
+    """Generate a prompt for planning package version upgrades."""
+    messages = await plan_version_upgrade(package_name, current_version, target_version, project_size)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def audit_security_risks_prompt(
+    packages: list[str],
+    environment: str | None = None,
+    compliance_requirements: str | None = None
+) -> str:
+    """Generate a prompt for security risk auditing of packages."""
+    messages = await audit_security_risks(packages, environment, compliance_requirements)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def plan_package_migration_prompt(
+    from_package: str,
+    to_package: str,
+    codebase_size: str = "medium",
+    timeline: str | None = None,
+    team_size: int | None = None
+) -> str:
+    """Generate a comprehensive package migration plan prompt."""
+    messages = await plan_package_migration(from_package, to_package, codebase_size, timeline, team_size)
+    return messages[0].text
+
+
+@mcp.prompt()
+async def generate_migration_checklist_prompt(
+    migration_type: str,
+    packages_involved: list[str],
+    environment: str = "all"
+) -> str:
+    """Generate a detailed migration checklist prompt."""
+    messages = await generate_migration_checklist(migration_type, packages_involved, environment)
+    return messages[0].text
 
 
 @click.command()
