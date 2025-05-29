@@ -1,3 +1,18 @@
+## v0.6.0 (2025-05-29)
+
+### Feat
+
+- add comprehensive environment and trending analysis prompt templates
+- add MCP prompt templates for PyPI package analysis and decision-making
+
+### Fix
+
+- resolve all lint issues and fix failing tests
+
+### Refactor
+
+- update prompt templates to follow standard MCP workflow
+
 ## v0.5.1 (2025-05-27)
 
 ### Fix
