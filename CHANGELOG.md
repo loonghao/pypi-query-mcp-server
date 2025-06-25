@@ -1,3 +1,9 @@
+## v0.6.1 (2025-06-25)
+
+### Fix
+
+- **deps**: update dependency pydantic-settings to v2.10.1
+
 ## v0.6.0 (2025-05-29)
 
 ### Feat
