@@ -1,3 +1,9 @@
+## v0.6.2 (2025-07-13)
+
+### Fix
+
+- **deps**: update dependency fastmcp to v2.9.0
+
 ## v0.6.1 (2025-06-25)
 
 ### Fix
