@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pypi-query-mcp-server"
-version = "0.6.3"
+version = "0.6.4"
 description = "A Model Context Protocol (MCP) server for querying PyPI package information, dependencies, and compatibility"
 authors = ["Hal <hal.long@outlook.com>"]
 readme = "README.md"

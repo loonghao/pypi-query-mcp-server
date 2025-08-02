@@ -1,3 +1,9 @@
+## v0.6.4 (2025-08-02)
+
+### Fix
+
+- **deps**: update dependency click to v8.2.2
+
 ## v0.6.3 (2025-07-13)
 
 ### Fix
