@@ -98,17 +98,25 @@ class DependencyParser:
             return True  # Include by default if evaluation fails
 
     def categorize_dependencies(
-        self, requirements: list[Requirement]
+        self, requirements: list[Requirement], provides_extra: list[str] = None
     ) -> dict[str, list[Requirement]]:
         """Categorize dependencies into runtime, development, and optional groups.
 
         Args:
             requirements: List of Requirement objects
+            provides_extra: List of available extras (from package metadata)
 
         Returns:
             Dictionary with categorized dependencies
         """
         categories = {"runtime": [], "development": [], "optional": {}, "extras": {}}
+        
+        # Define development-related extra names
+        dev_extra_names = {
+            'dev', 'development', 'test', 'testing', 'tests', 'lint', 'linting',
+            'doc', 'docs', 'documentation', 'build', 'check', 'cover', 'coverage',
+            'type', 'typing', 'mypy', 'style', 'format', 'quality'
+        }
 
         for req in requirements:
             if not req.marker:
@@ -126,9 +134,18 @@ class DependencyParser:
                     if extra_name not in categories["extras"]:
                         categories["extras"][extra_name] = []
                     categories["extras"][extra_name].append(req)
+                    
+                    # Check if this extra is development-related
+                    if extra_name.lower() in dev_extra_names:
+                        categories["development"].append(req)
+                    else:
+                        # Store in optional for non-dev extras
+                        if extra_name not in categories["optional"]:
+                            categories["optional"][extra_name] = []
+                        categories["optional"][extra_name].append(req)
                     continue
 
-            # Check for development dependencies
+            # Check for development dependencies in other markers
             if any(
                 keyword in marker_str.lower()
                 for keyword in ["dev", "test", "lint", "doc"]

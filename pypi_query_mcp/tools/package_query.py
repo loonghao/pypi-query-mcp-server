@@ -113,34 +113,42 @@ def format_dependency_info(package_data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Formatted dependency information
     """
+    from ..core.dependency_parser import DependencyParser
+    
     info = package_data.get("info", {})
     requires_dist = info.get("requires_dist", []) or []
+    provides_extra = info.get("provides_extra", []) or []
 
-    # Parse dependencies
-    runtime_deps = []
-    dev_deps = []
+    # Use the improved dependency parser
+    parser = DependencyParser()
+    requirements = parser.parse_requirements(requires_dist)
+    categories = parser.categorize_dependencies(requirements, provides_extra)
+
+    # Convert Requirements back to strings for JSON serialization
+    runtime_deps = [str(req) for req in categories["runtime"]]
+    dev_deps = [str(req) for req in categories["development"]]
+    
+    # Convert optional dependencies (extras) to string format
     optional_deps = {}
+    for extra_name, reqs in categories["extras"].items():
+        optional_deps[extra_name] = [str(req) for req in reqs]
 
-    for dep in requires_dist:
-        if not dep:
-            continue
-
-        # Basic parsing - could be improved with proper dependency parsing
-        if "extra ==" in dep:
-            # Optional dependency
-            parts = dep.split(";")
-            dep_name = parts[0].strip()
-            extra_part = parts[1] if len(parts) > 1 else ""
-
-            if "extra ==" in extra_part:
-                extra_name = extra_part.split("extra ==")[1].strip().strip("\"'")
-                if extra_name not in optional_deps:
-                    optional_deps[extra_name] = []
-                optional_deps[extra_name].append(dep_name)
-        elif "dev" in dep.lower() or "test" in dep.lower():
-            dev_deps.append(dep)
+    # Separate development and non-development optional dependencies
+    dev_optional_deps = {}
+    non_dev_optional_deps = {}
+    
+    # Define development-related extra names (same as in DependencyParser)
+    dev_extra_names = {
+        'dev', 'development', 'test', 'testing', 'tests', 'lint', 'linting',
+        'doc', 'docs', 'documentation', 'build', 'check', 'cover', 'coverage',
+        'type', 'typing', 'mypy', 'style', 'format', 'quality'
+    }
+    
+    for extra_name, deps in optional_deps.items():
+        if extra_name.lower() in dev_extra_names:
+            dev_optional_deps[extra_name] = deps
         else:
-            runtime_deps.append(dep)
+            non_dev_optional_deps[extra_name] = deps
 
     return {
         "package_name": info.get("name", ""),
@@ -148,13 +156,18 @@ def format_dependency_info(package_data: dict[str, Any]) -> dict[str, Any]:
         "requires_python": info.get("requires_python", ""),
         "runtime_dependencies": runtime_deps,
         "development_dependencies": dev_deps,
-        "optional_dependencies": optional_deps,
+        "optional_dependencies": non_dev_optional_deps,
+        "development_optional_dependencies": dev_optional_deps,
+        "provides_extra": provides_extra,
         "total_dependencies": len(requires_dist),
         "dependency_summary": {
             "runtime_count": len(runtime_deps),
             "dev_count": len(dev_deps),
-            "optional_groups": len(optional_deps),
-            "total_optional": sum(len(deps) for deps in optional_deps.values()),
+            "optional_groups": len(non_dev_optional_deps),
+            "dev_optional_groups": len(dev_optional_deps),
+            "total_optional": sum(len(deps) for deps in non_dev_optional_deps.values()),
+            "total_dev_optional": sum(len(deps) for deps in dev_optional_deps.values()),
+            "provides_extra_count": len(provides_extra),
         },
     }
 
