@@ -136,16 +136,24 @@ async def get_package_versions(package_name: str) -> dict[str, Any]:
 
 @mcp.tool()
 async def get_package_dependencies(
-    package_name: str, version: str | None = None
+    package_name: str, 
+    version: str | None = None,
+    include_transitive: bool = False,
+    max_depth: int = 5,
+    python_version: str | None = None
 ) -> dict[str, Any]:
     """Get dependency information for a PyPI package.
 
     This tool retrieves comprehensive dependency information for a Python package,
     including runtime dependencies, development dependencies, and optional dependencies.
+    When include_transitive=True, provides complete dependency tree analysis.
 
     Args:
         package_name: The name of the PyPI package to query (e.g., 'django', 'flask')
         version: Specific version to query (optional, defaults to latest version)
+        include_transitive: Whether to include transitive dependencies (default: False)
+        max_depth: Maximum recursion depth for transitive dependencies (default: 5)
+        python_version: Target Python version for dependency filtering (optional)
 
     Returns:
         Dictionary containing dependency information including:
@@ -153,6 +161,10 @@ async def get_package_dependencies(
         - Optional dependency groups
         - Python version requirements
         - Dependency counts and summary statistics
+        - Transitive dependency tree (if include_transitive=True)
+        - Circular dependency detection
+        - Performance impact analysis
+        - Complexity scoring
 
     Raises:
         InvalidPackageNameError: If package name is empty or invalid
@@ -163,8 +175,11 @@ async def get_package_dependencies(
         logger.info(
             f"MCP tool: Querying dependencies for {package_name}"
             + (f" version {version}" if version else " (latest)")
+            + (f" with transitive dependencies (max depth: {max_depth})" if include_transitive else " (direct only)")
         )
-        result = await query_package_dependencies(package_name, version)
+        result = await query_package_dependencies(
+            package_name, version, include_transitive, max_depth, python_version
+        )
         logger.info(f"Successfully retrieved dependencies for package: {package_name}")
         return result
     except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
@@ -174,6 +189,9 @@ async def get_package_dependencies(
             "error_type": type(e).__name__,
             "package_name": package_name,
             "version": version,
+            "include_transitive": include_transitive,
+            "max_depth": max_depth,
+            "python_version": python_version,
         }
     except Exception as e:
         logger.error(f"Unexpected error querying dependencies for {package_name}: {e}")
@@ -182,6 +200,9 @@ async def get_package_dependencies(
             "error_type": "UnexpectedError",
             "package_name": package_name,
             "version": version,
+            "include_transitive": include_transitive,
+            "max_depth": max_depth,
+            "python_version": python_version,
         }
 
 
