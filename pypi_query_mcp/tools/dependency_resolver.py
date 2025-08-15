@@ -35,7 +35,8 @@ class DependencyResolver:
         Args:
             package_name: Name of the package to resolve
             python_version: Target Python version (e.g., "3.10")
-            include_extras: List of extra dependencies to include
+            include_extras: List of extra dependency groups to include (e.g., ['socks'] for requests, 
+                ['test', 'doc'] for setuptools). These are optional dependencies defined by the package.
             include_dev: Whether to include development dependencies
             max_depth: Maximum recursion depth (overrides instance default)
 
@@ -242,7 +243,8 @@ async def resolve_package_dependencies(
     Args:
         package_name: Name of the package to resolve
         python_version: Target Python version (e.g., "3.10")
-        include_extras: List of extra dependencies to include
+        include_extras: List of extra dependency groups to include (e.g., ['socks'] for requests, 
+            ['test', 'doc'] for setuptools). These are optional dependencies defined by the package.
         include_dev: Whether to include development dependencies
         max_depth: Maximum recursion depth
 

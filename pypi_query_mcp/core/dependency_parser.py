@@ -81,6 +81,13 @@ class DependencyParser:
         if not req.marker:
             return True
 
+        # If the marker contains 'extra ==', this is an extra dependency
+        # and should not be filtered by Python version. Extra dependencies
+        # are handled separately based on user selection.
+        marker_str = str(req.marker)
+        if "extra ==" in marker_str:
+            return True
+
         # Create environment for marker evaluation
         env = {
             "python_version": str(python_version),

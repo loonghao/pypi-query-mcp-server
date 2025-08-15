@@ -305,7 +305,10 @@ async def resolve_dependencies(
     Args:
         package_name: The name of the PyPI package to analyze (e.g., 'pyside2', 'django')
         python_version: Target Python version for dependency filtering (e.g., '3.10', '3.11')
-        include_extras: List of extra dependency groups to include (e.g., ['dev', 'test'])
+        include_extras: List of extra dependency groups to include. These are optional 
+            dependency groups defined by the package (e.g., ['socks'] for requests, 
+            ['argon2', 'bcrypt'] for django, ['test', 'doc'] for setuptools). Check the 
+            package's PyPI page or use the provides_extra field to see available extras.
         include_dev: Whether to include development dependencies (default: False)
         max_depth: Maximum recursion depth for dependency resolution (default: 5)
 
@@ -373,7 +376,9 @@ async def download_package(
         package_name: The name of the PyPI package to download (e.g., 'pyside2', 'requests')
         download_dir: Local directory to download packages to (default: './downloads')
         python_version: Target Python version for compatibility (e.g., '3.10', '3.11')
-        include_extras: List of extra dependency groups to include (e.g., ['dev', 'test'])
+        include_extras: List of extra dependency groups to include. These are optional 
+            dependency groups defined by the package (e.g., ['socks'] for requests, 
+            ['argon2', 'bcrypt'] for django). Check the package's PyPI page to see available extras.
         include_dev: Whether to include development dependencies (default: False)
         prefer_wheel: Whether to prefer wheel files over source distributions (default: True)
         verify_checksums: Whether to verify downloaded file checksums (default: True)
