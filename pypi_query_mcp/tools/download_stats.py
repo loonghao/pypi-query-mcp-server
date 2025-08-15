@@ -65,16 +65,36 @@ async def get_package_download_stats(
 
             # Calculate trends and analysis
             analysis = _analyze_download_stats(download_data)
-
-            return {
+            
+            # Determine data source and add warnings if needed
+            data_source = recent_stats.get("source", "pypistats.org")
+            warning_note = recent_stats.get("note")
+            
+            result = {
                 "package": package_name,
                 "metadata": package_metadata,
                 "downloads": download_data,
                 "analysis": analysis,
                 "period": period,
-                "data_source": "pypistats.org",
+                "data_source": data_source,
                 "timestamp": datetime.now().isoformat(),
             }
+            
+            # Add warning/note about data quality if present
+            if warning_note:
+                result["data_quality_note"] = warning_note
+                
+            # Add reliability indicator
+            if data_source == "fallback_estimates":
+                result["reliability"] = "estimated"
+                result["warning"] = "Data is estimated due to API unavailability. Actual download counts may differ significantly."
+            elif "stale" in warning_note.lower() if warning_note else False:
+                result["reliability"] = "cached"
+                result["warning"] = "Data may be outdated due to current API issues."
+            else:
+                result["reliability"] = "live"
+
+            return result
 
         except Exception as e:
             logger.error(f"Error getting download stats for {package_name}: {e}")
@@ -114,15 +134,35 @@ async def get_package_download_trends(
 
             # Analyze trends
             trend_analysis = _analyze_download_trends(time_series_data, include_mirrors)
+            
+            # Determine data source and add warnings if needed
+            data_source = overall_stats.get("source", "pypistats.org")
+            warning_note = overall_stats.get("note")
 
-            return {
+            result = {
                 "package": package_name,
                 "time_series": time_series_data,
                 "trend_analysis": trend_analysis,
                 "include_mirrors": include_mirrors,
-                "data_source": "pypistats.org",
+                "data_source": data_source,
                 "timestamp": datetime.now().isoformat(),
             }
+            
+            # Add warning/note about data quality if present
+            if warning_note:
+                result["data_quality_note"] = warning_note
+                
+            # Add reliability indicator
+            if data_source == "fallback_estimates":
+                result["reliability"] = "estimated"
+                result["warning"] = "Data is estimated due to API unavailability. Actual download trends may differ significantly."
+            elif "stale" in warning_note.lower() if warning_note else False:
+                result["reliability"] = "cached"
+                result["warning"] = "Data may be outdated due to current API issues."
+            else:
+                result["reliability"] = "live"
+
+            return result
 
         except Exception as e:
             logger.error(f"Error getting download trends for {package_name}: {e}")
@@ -174,6 +214,10 @@ async def get_top_packages_by_downloads(
     async with PyPIStatsClient() as stats_client:
         try:
             top_packages = []
+            data_sources_used = set()
+            has_estimated_data = False
+            has_stale_data = False
+            successful_requests = 0
 
             # Get download stats for popular packages
             for i, package_name in enumerate(popular_packages[:limit]):
@@ -184,15 +228,35 @@ async def get_top_packages_by_downloads(
 
                     download_data = stats.get("data", {})
                     download_count = _extract_download_count(download_data, period)
+                    
+                    # Track data sources and quality
+                    source = stats.get("source", "pypistats.org")
+                    data_sources_used.add(source)
+                    
+                    if source == "fallback_estimates":
+                        has_estimated_data = True
+                    elif stats.get("note") and "stale" in stats.get("note", "").lower():
+                        has_stale_data = True
+                    
+                    successful_requests += 1
 
-                    top_packages.append(
-                        {
-                            "rank": i + 1,
-                            "package": package_name,
-                            "downloads": download_count,
-                            "period": period,
-                        }
-                    )
+                    package_entry = {
+                        "rank": i + 1,
+                        "package": package_name,
+                        "downloads": download_count,
+                        "period": period,
+                        "data_source": source,
+                    }
+                    
+                    # Add warning note if data is estimated or stale
+                    if source == "fallback_estimates":
+                        package_entry["reliability"] = "estimated"
+                    elif stats.get("note") and "stale" in stats.get("note", "").lower():
+                        package_entry["reliability"] = "cached"
+                    else:
+                        package_entry["reliability"] = "live"
+                        
+                    top_packages.append(package_entry)
 
                 except Exception as e:
                     logger.warning(f"Could not get stats for {package_name}: {e}")
@@ -205,15 +269,40 @@ async def get_top_packages_by_downloads(
             for i, package in enumerate(top_packages):
                 package["rank"] = i + 1
 
-            return {
+            # Determine overall data quality
+            primary_source = "pypistats.org" if "pypistats.org" in data_sources_used else list(data_sources_used)[0] if data_sources_used else "unknown"
+            
+            result = {
                 "top_packages": top_packages,
                 "period": period,
                 "limit": limit,
                 "total_found": len(top_packages),
-                "data_source": "pypistats.org",
+                "successful_requests": successful_requests,
+                "data_source": primary_source,
+                "data_sources_used": list(data_sources_used),
                 "note": "Based on known popular packages due to API limitations",
                 "timestamp": datetime.now().isoformat(),
             }
+            
+            # Add data quality warnings
+            if has_estimated_data:
+                result["warning"] = "Some data is estimated due to API unavailability. Rankings may not reflect actual current downloads."
+                result["reliability"] = "mixed_estimated"
+            elif has_stale_data:
+                result["warning"] = "Some data may be outdated due to current API issues."
+                result["reliability"] = "mixed_cached"
+            else:
+                result["reliability"] = "live"
+                
+            # Add information about data collection success rate
+            expected_requests = min(limit, len(popular_packages))
+            success_rate = (successful_requests / expected_requests) * 100 if expected_requests > 0 else 0
+            result["data_collection_success_rate"] = f"{success_rate:.1f}%"
+            
+            if success_rate < 50:
+                result["data_quality_warning"] = "Low data collection success rate. Results may be incomplete."
+
+            return result
 
         except Exception as e:
             logger.error(f"Error getting top packages: {e}")
