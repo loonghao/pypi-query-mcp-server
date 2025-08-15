@@ -1,12 +1,31 @@
 """Package query tools for PyPI MCP server."""
 
 import logging
+import re
 from typing import Any
 
 from ..core import InvalidPackageNameError, NetworkError, PyPIClient, PyPIError
 from ..core.version_utils import sort_versions_semantically
 
 logger = logging.getLogger(__name__)
+
+
+def validate_version_format(version: str | None) -> bool:
+    """Validate that a version string follows a reasonable format.
+
+    Args:
+        version: Version string to validate
+
+    Returns:
+        True if version format is valid or None, False otherwise
+    """
+    if version is None:
+        return True
+
+    # Basic validation for common version patterns
+    # Supports: 1.0.0, 1.0, 1.0.0a1, 1.0.0b2, 1.0.0rc1, 1.0.0.dev1, 2.0.0-dev, etc.
+    version_pattern = r"^[0-9]+(?:\.[0-9]+)*(?:[\.\-]?(?:a|b|rc|alpha|beta|dev|pre|post|final)[0-9]*)*$"
+    return bool(re.match(version_pattern, version.strip(), re.IGNORECASE))
 
 
 def format_package_info(package_data: dict[str, Any]) -> dict[str, Any]:
@@ -186,7 +205,7 @@ async def query_package_info(package_name: str) -> dict[str, Any]:
 
     try:
         async with PyPIClient() as client:
-            package_data = await client.get_package_info(package_name)
+            package_data = await client.get_package_info(package_name, version=None)
             return format_package_info(package_data)
     except PyPIError:
         # Re-raise PyPI-specific errors
@@ -217,7 +236,7 @@ async def query_package_versions(package_name: str) -> dict[str, Any]:
 
     try:
         async with PyPIClient() as client:
-            package_data = await client.get_package_info(package_name)
+            package_data = await client.get_package_info(package_name, version=None)
             return format_version_info(package_data)
     except PyPIError:
         # Re-raise PyPI-specific errors
@@ -241,11 +260,15 @@ async def query_package_dependencies(
 
     Raises:
         InvalidPackageNameError: If package name is invalid
-        PackageNotFoundError: If package is not found
+        PackageNotFoundError: If package is not found or version doesn't exist
         NetworkError: For network-related errors
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
+
+    # Validate version format if provided
+    if version and not validate_version_format(version):
+        raise InvalidPackageNameError(f"Invalid version format: {version}")
 
     logger.info(
         f"Querying dependencies for package: {package_name}"
@@ -254,16 +277,8 @@ async def query_package_dependencies(
 
     try:
         async with PyPIClient() as client:
-            package_data = await client.get_package_info(package_name)
-
-            # TODO: In future, support querying specific version dependencies
-            # For now, we return dependencies for the latest version
-            if version and version != package_data.get("info", {}).get("version"):
-                logger.warning(
-                    f"Specific version {version} requested but not implemented yet. "
-                    f"Returning dependencies for latest version."
-                )
-
+            # Pass the version parameter to get_package_info
+            package_data = await client.get_package_info(package_name, version=version)
             return format_dependency_info(package_data)
     except PyPIError:
         # Re-raise PyPI-specific errors
