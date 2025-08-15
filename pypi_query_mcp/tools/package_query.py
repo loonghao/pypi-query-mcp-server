@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from ..core import InvalidPackageNameError, NetworkError, PyPIClient, PyPIError
+from ..core.version_utils import sort_versions_semantically
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,12 @@ def format_package_info(package_data: dict[str, Any]) -> dict[str, Any]:
     # Add release information
     releases = package_data.get("releases", {})
     formatted["total_versions"] = len(releases)
-    formatted["available_versions"] = list(releases.keys())[-10:]  # Last 10 versions
+    # Sort versions semantically and get the most recent 10
+    if releases:
+        sorted_versions = sort_versions_semantically(list(releases.keys()), reverse=True)
+        formatted["available_versions"] = sorted_versions[:10]  # Most recent 10 versions
+    else:
+        formatted["available_versions"] = []
 
     # Add download statistics if available
     if "urls" in package_data:
@@ -79,8 +85,8 @@ def format_version_info(package_data: dict[str, Any]) -> dict[str, Any]:
     info = package_data.get("info", {})
     releases = package_data.get("releases", {})
 
-    # Sort versions (basic sorting, could be improved with proper version parsing)
-    sorted_versions = sorted(releases.keys(), reverse=True)
+    # Sort versions using semantic version ordering
+    sorted_versions = sort_versions_semantically(list(releases.keys()), reverse=True)
 
     return {
         "package_name": info.get("name", ""),
