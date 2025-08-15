@@ -50,6 +50,20 @@ uv run pypi-query-mcp
 
 ## Configuration
 
+### Claude Code (Recommended)
+
+Add the PyPI Query MCP Server to Claude Code using the built-in MCP management:
+
+```bash
+# Add with local scope (project-specific)
+claude mcp add pypi uvx pypi-query-mcp-server -s local
+
+# Add with user scope (available across all projects) 
+claude mcp add pypi uvx pypi-query-mcp-server -s user
+```
+
+> 📖 **Detailed Guide**: See [CLAUDE_CODE_INTEGRATION.md](CLAUDE_CODE_INTEGRATION.md) for comprehensive Claude Code integration documentation.
+
 ### Claude Desktop
 
 Add to your Claude Desktop configuration file:
