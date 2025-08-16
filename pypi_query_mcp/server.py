@@ -53,6 +53,12 @@ from .tools import (
     update_package_metadata,
     upload_package_to_pypi,
 )
+from .tools.discovery import (
+    get_pypi_package_recommendations,
+    get_pypi_trending_today,
+    monitor_pypi_new_releases,
+    search_pypi_by_maintainer,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -1885,6 +1891,233 @@ async def analyze_package_competition(
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
             "package_name": package_name,
+        }
+
+
+# PyPI Discovery & Monitoring Tools
+
+@mcp.tool()
+async def monitor_pypi_new_releases_tool(
+    categories: list[str] | None = None,
+    hours: int = 24,
+    min_downloads: int | None = None,
+    maintainer_filter: str | None = None,
+    enable_notifications: bool = False,
+    cache_ttl: int = 300,
+) -> dict[str, Any]:
+    """Track new releases in specified categories over a time period.
+    
+    This tool monitors PyPI for new package releases, providing comprehensive tracking
+    and analysis of recent activity in the Python ecosystem.
+    
+    Args:
+        categories: List of categories to monitor (e.g., ["web", "data-science", "ai", "cli"])
+        hours: Number of hours to look back for new releases (default: 24)
+        min_downloads: Minimum monthly downloads to include (filters out very new packages)
+        maintainer_filter: Filter releases by specific maintainer names
+        enable_notifications: Whether to enable alert system for monitoring
+        cache_ttl: Cache time-to-live in seconds (default: 300)
+        
+    Returns:
+        Dictionary containing new releases with metadata, analysis, and alerts
+        
+    Raises:
+        NetworkError: If unable to fetch release data
+        SearchError: If category filtering fails
+    """
+    try:
+        logger.info(f"MCP tool: Monitoring new PyPI releases for {hours}h, categories: {categories}")
+        result = await monitor_pypi_new_releases(
+            categories=categories,
+            hours=hours,
+            min_downloads=min_downloads,
+            maintainer_filter=maintainer_filter,
+            enable_notifications=enable_notifications,
+            cache_ttl=cache_ttl,
+        )
+        logger.info(f"Successfully monitored releases: {result['total_releases_found']} found")
+        return result
+    except (NetworkError, SearchError) as e:
+        logger.error(f"Error monitoring new releases: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "categories": categories,
+            "hours": hours,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error monitoring new releases: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "categories": categories,
+            "hours": hours,
+        }
+
+
+@mcp.tool()
+async def get_pypi_trending_today_tool(
+    category: str | None = None,
+    min_downloads: int = 1000,
+    limit: int = 50,
+    include_new_packages: bool = True,
+    trending_threshold: float = 1.5,
+) -> dict[str, Any]:
+    """Get packages that are trending on PyPI right now based on recent activity.
+    
+    This tool analyzes current PyPI trends to identify packages gaining popularity
+    or showing significant activity increases today.
+    
+    Args:
+        category: Optional category filter ("web", "ai", "data-science", etc.)
+        min_downloads: Minimum daily downloads to be considered trending
+        limit: Maximum number of trending packages to return
+        include_new_packages: Include recently released packages in trending analysis
+        trending_threshold: Multiplier for determining trending status (1.5 = 50% increase)
+        
+    Returns:
+        Dictionary containing trending packages with activity metrics and market insights
+        
+    Raises:
+        SearchError: If trending analysis fails
+        NetworkError: If unable to fetch trending data
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing today's PyPI trends, category: {category}")
+        result = await get_pypi_trending_today(
+            category=category,
+            min_downloads=min_downloads,
+            limit=limit,
+            include_new_packages=include_new_packages,
+            trending_threshold=trending_threshold,
+        )
+        logger.info(f"Successfully analyzed trends: {result['total_trending']} packages found")
+        return result
+    except (SearchError, NetworkError) as e:
+        logger.error(f"Error analyzing trending packages: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "category": category,
+            "limit": limit,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error analyzing trends: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "category": category,
+            "limit": limit,
+        }
+
+
+@mcp.tool()
+async def search_pypi_by_maintainer_tool(
+    maintainer: str,
+    include_email: bool = False,
+    sort_by: str = "popularity",
+    limit: int = 50,
+    include_stats: bool = True,
+) -> dict[str, Any]:
+    """Find all packages maintained by a specific maintainer or organization.
+    
+    This tool searches PyPI to find all packages associated with a particular
+    maintainer, providing comprehensive portfolio analysis.
+    
+    Args:
+        maintainer: Maintainer name or email to search for
+        include_email: Whether to search by email addresses too
+        sort_by: Sort results by ("popularity", "recent", "name", "downloads")
+        limit: Maximum number of packages to return
+        include_stats: Include download and popularity statistics
+        
+    Returns:
+        Dictionary containing packages by the maintainer with detailed portfolio analysis
+        
+    Raises:
+        InvalidPackageNameError: If maintainer name is invalid
+        SearchError: If maintainer search fails
+    """
+    try:
+        logger.info(f"MCP tool: Searching packages by maintainer: '{maintainer}'")
+        result = await search_pypi_by_maintainer(
+            maintainer=maintainer,
+            include_email=include_email,
+            sort_by=sort_by,
+            limit=limit,
+            include_stats=include_stats,
+        )
+        logger.info(f"Successfully found {result['total_packages']} packages for maintainer")
+        return result
+    except (InvalidPackageNameError, SearchError) as e:
+        logger.error(f"Error searching by maintainer {maintainer}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "maintainer": maintainer,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error searching by maintainer {maintainer}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "maintainer": maintainer,
+        }
+
+
+@mcp.tool()
+async def get_pypi_package_recommendations_tool(
+    package_name: str,
+    recommendation_type: str = "similar",
+    limit: int = 20,
+    include_alternatives: bool = True,
+    user_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Get PyPI's algorithm-based package recommendations and suggestions.
+    
+    This tool provides intelligent package recommendations using advanced algorithms
+    that consider functionality, popularity, and user context.
+    
+    Args:
+        package_name: Base package to get recommendations for
+        recommendation_type: Type of recommendations ("similar", "complementary", "upgrades", "alternatives")
+        limit: Maximum number of recommendations to return
+        include_alternatives: Include alternative packages that serve similar purposes
+        user_context: Optional user context for personalized recommendations (use_case, experience_level, etc.)
+        
+    Returns:
+        Dictionary containing personalized package recommendations with detailed analysis
+        
+    Raises:
+        PackageNotFoundError: If base package is not found
+        SearchError: If recommendation generation fails
+    """
+    try:
+        logger.info(f"MCP tool: Generating recommendations for package: '{package_name}'")
+        result = await get_pypi_package_recommendations(
+            package_name=package_name,
+            recommendation_type=recommendation_type,
+            limit=limit,
+            include_alternatives=include_alternatives,
+            user_context=user_context,
+        )
+        logger.info(f"Successfully generated {result['total_recommendations']} recommendations")
+        return result
+    except (PackageNotFoundError, SearchError) as e:
+        logger.error(f"Error generating recommendations for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "recommendation_type": recommendation_type,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error generating recommendations for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "recommendation_type": recommendation_type,
         }
 
 

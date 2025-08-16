@@ -41,6 +41,12 @@ from .search import (
     search_by_category,
     search_packages,
 )
+from .discovery import (
+    get_pypi_package_recommendations,
+    get_pypi_trending_today,
+    monitor_pypi_new_releases,
+    search_pypi_by_maintainer,
+)
 from .analytics import (
     analyze_pypi_competition,
     get_pypi_package_analytics,
@@ -78,4 +84,8 @@ __all__ = [
     "get_pypi_security_alerts",
     "get_pypi_package_rankings",
     "analyze_pypi_competition",
+    "monitor_pypi_new_releases",
+    "get_pypi_trending_today",
+    "search_pypi_by_maintainer",
+    "get_pypi_package_recommendations",
 ]
