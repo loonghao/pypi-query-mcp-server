@@ -24,6 +24,7 @@ from .prompts import (
     track_package_updates,
 )
 from .tools import (
+    analyze_pypi_competition,
     check_pypi_credentials,
     check_python_compatibility,
     delete_pypi_release,
@@ -33,6 +34,9 @@ from .tools import (
     get_package_download_stats,
     get_package_download_trends,
     get_pypi_account_info,
+    get_pypi_package_analytics,
+    get_pypi_package_rankings,
+    get_pypi_security_alerts,
     get_pypi_upload_history,
     get_top_packages_by_downloads,
     get_trending_packages,
@@ -1647,6 +1651,241 @@ async def track_package_updates_prompt(
 
     # Step 7: Return final prompt
     return result
+
+
+@mcp.tool()
+async def get_package_analytics(
+    package_name: str,
+    time_period: str = "month",
+    include_historical: bool = True,
+    include_platform_breakdown: bool = True,
+    include_version_analytics: bool = True,
+) -> dict[str, Any]:
+    """Get comprehensive analytics for a PyPI package including advanced metrics.
+    
+    This tool provides detailed download analytics, trend analysis, geographic
+    distribution, platform breakdown, and version adoption patterns.
+    
+    Args:
+        package_name: Name of the package to analyze
+        time_period: Time period for analysis ('day', 'week', 'month', 'year')
+        include_historical: Whether to include historical trend analysis
+        include_platform_breakdown: Whether to include platform/OS breakdown
+        include_version_analytics: Whether to include version-specific analytics
+        
+    Returns:
+        Dictionary containing comprehensive analytics including:
+        - Download statistics and trends
+        - Platform and Python version breakdown
+        - Geographic distribution
+        - Version adoption patterns
+        - Quality metrics and indicators
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Generating comprehensive analytics for {package_name}")
+        result = await get_pypi_package_analytics(
+            package_name=package_name,
+            time_period=time_period,
+            include_historical=include_historical,
+            include_platform_breakdown=include_platform_breakdown,
+            include_version_analytics=include_version_analytics,
+        )
+        logger.info(f"Successfully generated analytics for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error generating analytics for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error generating analytics for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def get_security_alerts(
+    package_name: str,
+    include_dependencies: bool = True,
+    severity_filter: str | None = None,
+    include_historical: bool = False,
+) -> dict[str, Any]:
+    """Get security alerts and vulnerability information for a PyPI package.
+    
+    This tool queries multiple security databases including OSV (Open Source
+    Vulnerabilities), PyUp.io Safety DB, and GitHub Security Advisories to provide
+    comprehensive security information.
+    
+    Args:
+        package_name: Name of the package to check for vulnerabilities
+        include_dependencies: Whether to check dependencies for vulnerabilities
+        severity_filter: Filter by severity ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
+        include_historical: Whether to include historical vulnerabilities
+        
+    Returns:
+        Dictionary containing security information including:
+        - Active vulnerabilities and CVEs
+        - Security scores and risk assessment
+        - Dependency vulnerability analysis
+        - Remediation recommendations
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Checking security alerts for {package_name}")
+        result = await get_pypi_security_alerts(
+            package_name=package_name,
+            include_dependencies=include_dependencies,
+            severity_filter=severity_filter,
+            include_historical=include_historical,
+        )
+        logger.info(f"Successfully checked security alerts for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error checking security alerts for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error checking security alerts for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def get_package_rankings(
+    package_name: str,
+    search_terms: list[str] | None = None,
+    competitor_packages: list[str] | None = None,
+    ranking_metrics: list[str] | None = None,
+) -> dict[str, Any]:
+    """Analyze package rankings and visibility in PyPI search results.
+    
+    This tool analyzes how well a package ranks for relevant search terms,
+    compares it to competitor packages, and provides insights into search
+    visibility and discoverability.
+    
+    Args:
+        package_name: Name of the package to analyze rankings for
+        search_terms: List of search terms to test rankings against
+        competitor_packages: List of competitor packages to compare against
+        ranking_metrics: Specific metrics to focus on ('relevance', 'popularity', 'downloads', 'quality')
+        
+    Returns:
+        Dictionary containing ranking analysis including:
+        - Search position for various terms
+        - Competitor comparison matrix
+        - Visibility and discoverability metrics
+        - SEO and keyword optimization suggestions
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing search rankings for {package_name}")
+        result = await get_pypi_package_rankings(
+            package_name=package_name,
+            search_terms=search_terms,
+            competitor_packages=competitor_packages,
+            ranking_metrics=ranking_metrics,
+        )
+        logger.info(f"Successfully analyzed rankings for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error analyzing rankings for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error analyzing rankings for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def analyze_package_competition(
+    package_name: str,
+    competitor_packages: list[str] | None = None,
+    analysis_depth: str = "comprehensive",
+    include_market_share: bool = True,
+    include_feature_comparison: bool = True,
+) -> dict[str, Any]:
+    """Perform comprehensive competitive analysis against similar packages.
+    
+    This tool analyzes a package against its competitors, providing insights
+    into market positioning, feature gaps, adoption trends, and competitive
+    advantages.
+    
+    Args:
+        package_name: Name of the package to analyze
+        competitor_packages: List of competitor packages (auto-detected if not provided)
+        analysis_depth: Depth of analysis ('basic', 'comprehensive', 'detailed')
+        include_market_share: Whether to include market share analysis
+        include_feature_comparison: Whether to include feature comparison
+        
+    Returns:
+        Dictionary containing competitive analysis including:
+        - Market positioning and share
+        - Feature comparison matrix
+        - Adoption and growth trends
+        - Competitive advantages and weaknesses
+        - Strategic recommendations
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing competition for {package_name}")
+        result = await analyze_pypi_competition(
+            package_name=package_name,
+            competitor_packages=competitor_packages,
+            analysis_depth=analysis_depth,
+            include_market_share=include_market_share,
+            include_feature_comparison=include_feature_comparison,
+        )
+        logger.info(f"Successfully analyzed competition for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error analyzing competition for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error analyzing competition for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
 
 
 @click.command()

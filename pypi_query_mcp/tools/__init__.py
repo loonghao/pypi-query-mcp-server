@@ -41,6 +41,12 @@ from .search import (
     search_by_category,
     search_packages,
 )
+from .analytics import (
+    analyze_pypi_competition,
+    get_pypi_package_analytics,
+    get_pypi_package_rankings,
+    get_pypi_security_alerts,
+)
 
 __all__ = [
     "query_package_info",
@@ -68,4 +74,8 @@ __all__ = [
     "manage_package_urls",
     "set_package_visibility",
     "manage_package_keywords",
+    "get_pypi_package_analytics",
+    "get_pypi_security_alerts",
+    "get_pypi_package_rankings",
+    "analyze_pypi_competition",
 ]
