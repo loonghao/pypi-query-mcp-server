@@ -21,6 +21,12 @@ from .package_query import (
     query_package_info,
     query_package_versions,
 )
+from .metadata import (
+    manage_package_keywords,
+    manage_package_urls,
+    set_package_visibility,
+    update_package_metadata,
+)
 from .publishing import (
     check_pypi_credentials,
     delete_pypi_release,
@@ -58,4 +64,8 @@ __all__ = [
     "delete_pypi_release",
     "manage_pypi_maintainers",
     "get_pypi_account_info",
+    "update_package_metadata",
+    "manage_package_urls",
+    "set_package_visibility",
+    "manage_package_keywords",
 ]

@@ -36,6 +36,8 @@ from .tools import (
     get_pypi_upload_history,
     get_top_packages_by_downloads,
     get_trending_packages,
+    manage_package_keywords,
+    manage_package_urls,
     manage_pypi_maintainers,
     query_package_dependencies,
     query_package_info,
@@ -43,6 +45,8 @@ from .tools import (
     resolve_package_dependencies,
     search_by_category,
     search_packages,
+    set_package_visibility,
+    update_package_metadata,
     upload_package_to_pypi,
 )
 
@@ -1088,6 +1092,231 @@ async def get_pypi_account_info_tool(
             "error": str(e),
             "error_type": type(e).__name__,
             "test_pypi": test_pypi,
+        }
+
+
+# Metadata Management Tools
+@mcp.tool()
+async def update_package_metadata_tool(
+    package_name: str,
+    description: str | None = None,
+    keywords: list[str] | None = None,
+    classifiers: list[str] | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Update package metadata including description, keywords, and classifiers.
+    
+    This tool helps manage PyPI package metadata by validating changes and providing
+    guidance on how to update metadata through package uploads.
+    
+    Args:
+        package_name: Name of the package to update
+        description: New package description
+        keywords: List of keywords for the package
+        classifiers: List of PyPI classifiers (e.g., programming language, license)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        dry_run: If True, only validate changes without applying them
+        
+    Returns:
+        Dictionary containing metadata update results and recommendations
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If user lacks permission to modify package
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Updating metadata for {package_name} (dry_run={dry_run})")
+        result = await update_package_metadata(
+            package_name=package_name,
+            description=description,
+            keywords=keywords,
+            classifiers=classifiers,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            dry_run=dry_run,
+        )
+        logger.info(f"Metadata update completed for {package_name}: {result.get('success', 'analysis_complete')}")
+        return result
+    except Exception as e:
+        logger.error(f"Error updating metadata for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "dry_run": dry_run,
+        }
+
+
+@mcp.tool()
+async def manage_package_urls_tool(
+    package_name: str,
+    homepage: str | None = None,
+    documentation: str | None = None,
+    repository: str | None = None,
+    download_url: str | None = None,
+    bug_tracker: str | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    validate_urls: bool = True,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Manage package URLs including homepage, documentation, and repository links.
+    
+    This tool validates and manages package URLs, providing guidance on proper
+    URL configuration and accessibility checking.
+    
+    Args:
+        package_name: Name of the package to update
+        homepage: Package homepage URL
+        documentation: Documentation URL
+        repository: Source code repository URL
+        download_url: Package download URL
+        bug_tracker: Bug tracker URL
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        validate_urls: Whether to validate URL accessibility
+        dry_run: If True, only validate changes without applying them
+        
+    Returns:
+        Dictionary containing URL management results and validation
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If user lacks permission to modify package
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing URLs for {package_name} (dry_run={dry_run})")
+        result = await manage_package_urls(
+            package_name=package_name,
+            homepage=homepage,
+            documentation=documentation,
+            repository=repository,
+            download_url=download_url,
+            bug_tracker=bug_tracker,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            validate_urls=validate_urls,
+            dry_run=dry_run,
+        )
+        logger.info(f"URL management completed for {package_name}: quality_score={result.get('url_quality_score', 0)}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing URLs for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "dry_run": dry_run,
+        }
+
+
+@mcp.tool()
+async def set_package_visibility_tool(
+    package_name: str,
+    visibility: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    confirm_action: bool = False,
+) -> dict[str, Any]:
+    """Set package visibility (private/public) for organization packages.
+    
+    This tool provides guidance on package visibility management, which is primarily
+    available for PyPI organizations with special permissions.
+    
+    Args:
+        package_name: Name of the package to modify
+        visibility: Visibility setting ("public" or "private")
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        confirm_action: Explicit confirmation required for visibility changes
+        
+    Returns:
+        Dictionary containing visibility management results and limitations
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If user lacks permission to modify package
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Setting visibility for {package_name} to {visibility}")
+        result = await set_package_visibility(
+            package_name=package_name,
+            visibility=visibility,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            confirm_action=confirm_action,
+        )
+        logger.info(f"Visibility analysis completed for {package_name}: {result.get('success', 'analysis_complete')}")
+        return result
+    except Exception as e:
+        logger.error(f"Error setting visibility for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "visibility": visibility,
+        }
+
+
+@mcp.tool()
+async def manage_package_keywords_tool(
+    package_name: str,
+    action: str,
+    keywords: list[str] | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Manage package keywords and search tags.
+    
+    This tool provides comprehensive keyword management including validation,
+    quality analysis, and recommendations for better package discoverability.
+    
+    Args:
+        package_name: Name of the package to modify
+        action: Action to perform ("add", "remove", "replace", "list")
+        keywords: List of keywords to add/remove/replace
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        dry_run: If True, only simulate changes without applying them
+        
+    Returns:
+        Dictionary containing keyword management results and recommendations
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If user lacks permission to modify package
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing keywords for {package_name}: {action} (dry_run={dry_run})")
+        result = await manage_package_keywords(
+            package_name=package_name,
+            action=action,
+            keywords=keywords,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            dry_run=dry_run,
+        )
+        logger.info(f"Keyword management completed for {package_name}: {result.get('success', 'analysis_complete')}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing keywords for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
         }
 
 
