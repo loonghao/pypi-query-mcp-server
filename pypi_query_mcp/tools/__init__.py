@@ -21,6 +21,14 @@ from .package_query import (
     query_package_info,
     query_package_versions,
 )
+from .publishing import (
+    check_pypi_credentials,
+    delete_pypi_release,
+    get_pypi_account_info,
+    get_pypi_upload_history,
+    manage_pypi_maintainers,
+    upload_package_to_pypi,
+)
 from .search import (
     find_alternatives,
     get_trending_packages,
@@ -44,4 +52,10 @@ __all__ = [
     "search_by_category",
     "find_alternatives",
     "get_trending_packages",
+    "upload_package_to_pypi",
+    "check_pypi_credentials",
+    "get_pypi_upload_history",
+    "delete_pypi_release",
+    "manage_pypi_maintainers",
+    "get_pypi_account_info",
 ]

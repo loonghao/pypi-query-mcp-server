@@ -24,20 +24,26 @@ from .prompts import (
     track_package_updates,
 )
 from .tools import (
+    check_pypi_credentials,
     check_python_compatibility,
+    delete_pypi_release,
     download_package_with_dependencies,
     find_alternatives,
     get_compatible_python_versions,
     get_package_download_stats,
     get_package_download_trends,
+    get_pypi_account_info,
+    get_pypi_upload_history,
     get_top_packages_by_downloads,
     get_trending_packages,
+    manage_pypi_maintainers,
     query_package_dependencies,
     query_package_info,
     query_package_versions,
     resolve_package_dependencies,
     search_by_category,
     search_packages,
+    upload_package_to_pypi,
 )
 
 # Configure logging
@@ -803,6 +809,285 @@ async def get_trending_pypi_packages(
             "category": category,
             "time_period": time_period,
             "limit": limit,
+        }
+
+
+# PyPI Publishing and Account Management Tools
+
+
+@mcp.tool()
+async def upload_package_to_pypi_tool(
+    distribution_paths: list[str],
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    skip_existing: bool = True,
+    verify_uploads: bool = True,
+) -> dict[str, Any]:
+    """Upload package distributions to PyPI or TestPyPI.
+    
+    This tool uploads Python package distributions (.whl, .tar.gz files) to PyPI,
+    providing comprehensive upload management with safety checks and verification.
+    
+    Args:
+        distribution_paths: List of paths to distribution files (.whl, .tar.gz)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to upload to TestPyPI instead of production PyPI
+        skip_existing: Skip files that already exist on PyPI
+        verify_uploads: Verify uploads after completion
+        
+    Returns:
+        Dictionary containing upload results and metadata
+        
+    Raises:
+        PyPIAuthenticationError: If authentication fails
+        PyPIUploadError: If upload operations fail
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Uploading {len(distribution_paths)} distributions to {'TestPyPI' if test_pypi else 'PyPI'}")
+        result = await upload_package_to_pypi(
+            distribution_paths=distribution_paths,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            skip_existing=skip_existing,
+            verify_uploads=verify_uploads,
+        )
+        logger.info(f"Upload completed: {result.get('summary', {})}")
+        return result
+    except Exception as e:
+        logger.error(f"Error uploading packages: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "distribution_paths": distribution_paths,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def check_pypi_credentials_tool(
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Validate PyPI API token and credentials.
+    
+    This tool checks if your PyPI API token is valid and provides information
+    about your account permissions and capabilities.
+    
+    Args:
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to check against TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing credential validation results
+        
+    Raises:
+        PyPIAuthenticationError: If credential validation fails
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Checking {'TestPyPI' if test_pypi else 'PyPI'} credentials")
+        result = await check_pypi_credentials(api_token=api_token, test_pypi=test_pypi)
+        logger.info(f"Credential check completed: valid={result.get('valid', False)}")
+        return result
+    except Exception as e:
+        logger.error(f"Error checking credentials: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def get_pypi_upload_history_tool(
+    package_name: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Get upload history for a PyPI package.
+    
+    This tool retrieves the upload history for a package, showing all versions,
+    files, and upload metadata with statistics and analysis.
+    
+    Args:
+        package_name: Name of the package to get upload history for
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to check TestPyPI instead of production PyPI
+        limit: Maximum number of uploads to return
+        
+    Returns:
+        Dictionary containing upload history and metadata
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting upload history for {package_name}")
+        result = await get_pypi_upload_history(
+            package_name=package_name,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            limit=limit,
+        )
+        upload_count = result.get('statistics', {}).get('total_uploads', 0)
+        logger.info(f"Retrieved {upload_count} upload records for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting upload history for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def delete_pypi_release_tool(
+    package_name: str,
+    version: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    confirm_deletion: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Delete a specific release from PyPI (with safety checks).
+    
+    This tool provides safe deletion of PyPI releases with multiple safety checks,
+    dry-run capability, and comprehensive validation. Note that PyPI deletion is
+    very restricted and typically only available to package owners within a limited
+    time window after upload.
+    
+    Args:
+        package_name: Name of the package
+        version: Version to delete
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        confirm_deletion: Explicit confirmation required for actual deletion
+        dry_run: If True, only simulate the deletion without actually performing it
+        
+    Returns:
+        Dictionary containing deletion results and safety information
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package/version is not found
+        PyPIPermissionError: If deletion is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: {'DRY RUN: ' if dry_run else ''}Deleting {package_name}=={version}")
+        result = await delete_pypi_release(
+            package_name=package_name,
+            version=version,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            confirm_deletion=confirm_deletion,
+            dry_run=dry_run,
+        )
+        action = result.get('action', 'unknown')
+        logger.info(f"Deletion operation completed: {action}")
+        return result
+    except Exception as e:
+        logger.error(f"Error deleting release {package_name}=={version}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "version": version,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def manage_pypi_maintainers_tool(
+    package_name: str,
+    action: str,
+    username: str | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Manage package maintainers (add/remove/list).
+    
+    This tool helps manage package maintainers and collaborators. Note that maintainer
+    management typically requires package owner permissions and may need to be done
+    through the PyPI web interface.
+    
+    Args:
+        package_name: Name of the package
+        action: Action to perform ('list', 'add', 'remove')
+        username: Username to add/remove (required for add/remove actions)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing maintainer management results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing maintainers for {package_name}: {action}")
+        result = await manage_pypi_maintainers(
+            package_name=package_name,
+            action=action,
+            username=username,
+            api_token=api_token,
+            test_pypi=test_pypi,
+        )
+        maintainer_count = result.get('maintainer_count', 0)
+        logger.info(f"Maintainer management completed: {maintainer_count} maintainers")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing maintainers for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def get_pypi_account_info_tool(
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Get PyPI account information, quotas, and limits.
+    
+    This tool retrieves information about your PyPI account including permissions,
+    limitations, quotas, and provides recommendations for account security and usage.
+    
+    Args:
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing account information and limitations
+        
+    Raises:
+        PyPIAuthenticationError: If authentication fails
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting account information for {'TestPyPI' if test_pypi else 'PyPI'}")
+        result = await get_pypi_account_info(api_token=api_token, test_pypi=test_pypi)
+        logger.info("Account information retrieved successfully")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting account information: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "test_pypi": test_pypi,
         }
 
 
