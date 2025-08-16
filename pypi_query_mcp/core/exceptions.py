@@ -54,3 +54,11 @@ class PyPIServerError(PyPIError):
         if not message:
             message = f"PyPI server error (HTTP {status_code})"
         super().__init__(message, status_code=status_code)
+
+
+class SearchError(PyPIError):
+    """Raised when search operations fail."""
+
+    def __init__(self, message: str, query: str | None = None):
+        super().__init__(message)
+        self.query = query

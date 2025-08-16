@@ -21,6 +21,12 @@ from .package_query import (
     query_package_info,
     query_package_versions,
 )
+from .search import (
+    find_alternatives,
+    get_trending_packages,
+    search_by_category,
+    search_packages,
+)
 
 __all__ = [
     "query_package_info",
@@ -34,4 +40,8 @@ __all__ = [
     "get_package_download_stats",
     "get_package_download_trends",
     "get_top_packages_by_downloads",
+    "search_packages",
+    "search_by_category",
+    "find_alternatives",
+    "get_trending_packages",
 ]

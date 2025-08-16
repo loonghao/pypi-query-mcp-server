@@ -6,7 +6,7 @@ from typing import Any
 import click
 from fastmcp import FastMCP
 
-from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
+from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError, SearchError
 from .prompts import (
     analyze_daily_trends,
     analyze_environment_dependencies,
@@ -26,14 +26,18 @@ from .prompts import (
 from .tools import (
     check_python_compatibility,
     download_package_with_dependencies,
+    find_alternatives,
     get_compatible_python_versions,
     get_package_download_stats,
     get_package_download_trends,
     get_top_packages_by_downloads,
+    get_trending_packages,
     query_package_dependencies,
     query_package_info,
     query_package_versions,
     resolve_package_dependencies,
+    search_by_category,
+    search_packages,
 )
 
 # Configure logging
@@ -609,6 +613,195 @@ async def get_top_downloaded_packages(
             "error": f"Unexpected error: {e}",
             "error_type": "UnexpectedError",
             "period": period,
+            "limit": limit,
+        }
+
+
+@mcp.tool()
+async def search_pypi_packages(
+    query: str,
+    limit: int = 20,
+    python_versions: list[str] | None = None,
+    licenses: list[str] | None = None,
+    categories: list[str] | None = None,
+    min_downloads: int | None = None,
+    maintenance_status: str | None = None,
+    has_wheels: bool | None = None,
+    sort_by: str = "relevance",
+    sort_desc: bool = True,
+    semantic_search: bool = False,
+) -> dict[str, Any]:
+    """Search PyPI packages with advanced filtering and sorting.
+    
+    This tool provides comprehensive search functionality for PyPI packages with
+    advanced filtering options, multiple sorting criteria, and semantic search capabilities.
+    
+    Args:
+        query: Search query string (required)
+        limit: Maximum number of results to return (default: 20, max: 100)
+        python_versions: Filter by Python versions (e.g., ["3.9", "3.10", "3.11"])
+        licenses: Filter by license types (e.g., ["mit", "apache", "bsd", "gpl"])
+        categories: Filter by categories (e.g., ["web", "data-science", "testing"])
+        min_downloads: Minimum monthly downloads threshold
+        maintenance_status: Filter by maintenance status ("active", "maintained", "stale", "abandoned")
+        has_wheels: Filter packages that have wheel distributions (true/false)
+        sort_by: Sort field ("relevance", "popularity", "recency", "quality", "name", "downloads")
+        sort_desc: Sort in descending order (default: true)
+        semantic_search: Use semantic search on package descriptions (default: false)
+        
+    Returns:
+        Dictionary containing search results with packages, metadata, and filtering info
+        
+    Raises:
+        InvalidPackageNameError: If search query is empty or invalid
+        SearchError: If search operation fails
+    """
+    try:
+        return await search_packages(
+            query=query,
+            limit=limit,
+            python_versions=python_versions,
+            licenses=licenses,
+            categories=categories,
+            min_downloads=min_downloads,
+            maintenance_status=maintenance_status,
+            has_wheels=has_wheels,
+            sort_by=sort_by,
+            sort_desc=sort_desc,
+            semantic_search=semantic_search,
+        )
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError):
+        raise
+    except Exception as e:
+        logger.error(f"Error searching packages for '{query}': {e}")
+        return {
+            "error": f"Search failed: {e}",
+            "error_type": "SearchError",
+            "query": query,
+            "limit": limit,
+        }
+
+
+@mcp.tool()
+async def search_packages_by_category(
+    category: str,
+    limit: int = 20,
+    sort_by: str = "popularity",
+    python_version: str | None = None,
+) -> dict[str, Any]:
+    """Search packages by category with popularity sorting.
+    
+    This tool searches for packages in specific categories, making it easy to discover
+    relevant packages for particular use cases or domains.
+    
+    Args:
+        category: Category to search ("web", "data-science", "database", "testing", "cli", 
+                 "security", "networking", "dev-tools", "cloud", "gui")
+        limit: Maximum number of results to return (default: 20)
+        sort_by: Sort field (default: "popularity")
+        python_version: Filter by Python version compatibility (e.g., "3.10")
+        
+    Returns:
+        Dictionary containing categorized search results
+        
+    Raises:
+        SearchError: If category search fails
+    """
+    try:
+        return await search_by_category(
+            category=category,
+            limit=limit,
+            sort_by=sort_by,
+            python_version=python_version,
+        )
+    except Exception as e:
+        logger.error(f"Error searching category '{category}': {e}")
+        return {
+            "error": f"Category search failed: {e}",
+            "error_type": "SearchError", 
+            "category": category,
+            "limit": limit,
+        }
+
+
+@mcp.tool()
+async def find_package_alternatives(
+    package_name: str,
+    limit: int = 10,
+    include_similar: bool = True,
+) -> dict[str, Any]:
+    """Find alternative packages to a given package.
+    
+    This tool analyzes a package's functionality and finds similar or alternative
+    packages that could serve the same purpose, useful for evaluating options
+    or finding replacements.
+    
+    Args:
+        package_name: Name of the package to find alternatives for
+        limit: Maximum number of alternatives to return (default: 10)
+        include_similar: Include packages with similar functionality (default: true)
+        
+    Returns:
+        Dictionary containing alternative packages with analysis and recommendations
+        
+    Raises:
+        PackageNotFoundError: If the target package is not found
+        SearchError: If alternatives search fails
+    """
+    try:
+        return await find_alternatives(
+            package_name=package_name,
+            limit=limit,
+            include_similar=include_similar,
+        )
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError):
+        raise
+    except Exception as e:
+        logger.error(f"Error finding alternatives for '{package_name}': {e}")
+        return {
+            "error": f"Alternatives search failed: {e}",
+            "error_type": "SearchError",
+            "package_name": package_name,
+            "limit": limit,
+        }
+
+
+@mcp.tool()
+async def get_trending_pypi_packages(
+    category: str | None = None,
+    time_period: str = "week",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Get trending packages based on recent download activity.
+    
+    This tool identifies packages that are gaining popularity or have high
+    recent download activity, useful for discovering emerging trends in the
+    Python ecosystem.
+    
+    Args:
+        category: Optional category filter ("web", "data-science", "database", etc.)
+        time_period: Time period for trending analysis ("day", "week", "month")
+        limit: Maximum number of packages to return (default: 20)
+        
+    Returns:
+        Dictionary containing trending packages with analysis and metrics
+        
+    Raises:
+        SearchError: If trending analysis fails
+    """
+    try:
+        return await get_trending_packages(
+            category=category,
+            time_period=time_period,
+            limit=limit,
+        )
+    except Exception as e:
+        logger.error(f"Error getting trending packages (category: {category}): {e}")
+        return {
+            "error": f"Trending analysis failed: {e}",
+            "error_type": "SearchError",
+            "category": category,
+            "time_period": time_period,
             "limit": limit,
         }
 
