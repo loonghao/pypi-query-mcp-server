@@ -182,7 +182,7 @@ class PyPIClient:
             NetworkError: For network-related errors
         """
         normalized_name = self._validate_package_name(package_name)
-        
+
         # Create cache key that includes version info
         cache_suffix = f"v{version}" if version else "latest"
         cache_key = self._get_cache_key(normalized_name, f"info_{cache_suffix}")
@@ -191,13 +191,17 @@ class PyPIClient:
         if use_cache and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if self._is_cache_valid(cache_entry):
-                logger.debug(f"Using cached data for package: {normalized_name} version: {version or 'latest'}")
+                logger.debug(
+                    f"Using cached data for package: {normalized_name} version: {version or 'latest'}"
+                )
                 return cache_entry["data"]
 
         # Build URL - include version if specified
         if version:
             url = f"{self.base_url}/{quote(normalized_name)}/{quote(version)}/json"
-            logger.info(f"Fetching package info for: {normalized_name} version {version}")
+            logger.info(
+                f"Fetching package info for: {normalized_name} version {version}"
+            )
         else:
             url = f"{self.base_url}/{quote(normalized_name)}/json"
             logger.info(f"Fetching package info for: {normalized_name} (latest)")
@@ -215,13 +219,19 @@ class PyPIClient:
         except PackageNotFoundError as e:
             if version:
                 # More specific error message for version not found
-                logger.error(f"Version {version} not found for package {normalized_name}")
-                raise PackageNotFoundError(f"Version {version} not found for package {normalized_name}")
+                logger.error(
+                    f"Version {version} not found for package {normalized_name}"
+                )
+                raise PackageNotFoundError(
+                    f"Version {version} not found for package {normalized_name}"
+                )
             else:
                 logger.error(f"Failed to fetch package info for {normalized_name}: {e}")
                 raise
         except Exception as e:
-            logger.error(f"Failed to fetch package info for {normalized_name} version {version or 'latest'}: {e}")
+            logger.error(
+                f"Failed to fetch package info for {normalized_name} version {version or 'latest'}: {e}"
+            )
             raise
 
     async def get_package_versions(
@@ -236,7 +246,9 @@ class PyPIClient:
         Returns:
             List of version strings
         """
-        package_info = await self.get_package_info(package_name, version=None, use_cache=use_cache)
+        package_info = await self.get_package_info(
+            package_name, version=None, use_cache=use_cache
+        )
         releases = package_info.get("releases", {})
         return list(releases.keys())
 
@@ -252,7 +264,9 @@ class PyPIClient:
         Returns:
             Latest version string
         """
-        package_info = await self.get_package_info(package_name, version=None, use_cache=use_cache)
+        package_info = await self.get_package_info(
+            package_name, version=None, use_cache=use_cache
+        )
         return package_info.get("info", {}).get("version", "")
 
     def clear_cache(self):

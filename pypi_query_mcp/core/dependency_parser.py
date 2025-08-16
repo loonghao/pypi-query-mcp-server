@@ -117,12 +117,29 @@ class DependencyParser:
             Dictionary with categorized dependencies
         """
         categories = {"runtime": [], "development": [], "optional": {}, "extras": {}}
-        
+
         # Define development-related extra names
         dev_extra_names = {
-            'dev', 'development', 'test', 'testing', 'tests', 'lint', 'linting',
-            'doc', 'docs', 'documentation', 'build', 'check', 'cover', 'coverage',
-            'type', 'typing', 'mypy', 'style', 'format', 'quality'
+            "dev",
+            "development",
+            "test",
+            "testing",
+            "tests",
+            "lint",
+            "linting",
+            "doc",
+            "docs",
+            "documentation",
+            "build",
+            "check",
+            "cover",
+            "coverage",
+            "type",
+            "typing",
+            "mypy",
+            "style",
+            "format",
+            "quality",
         }
 
         for req in requirements:
@@ -141,7 +158,7 @@ class DependencyParser:
                     if extra_name not in categories["extras"]:
                         categories["extras"][extra_name] = []
                     categories["extras"][extra_name].append(req)
-                    
+
                     # Check if this extra is development-related
                     if extra_name.lower() in dev_extra_names:
                         categories["development"].append(req)

@@ -3,14 +3,13 @@
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.github_client import GitHubAPIClient
 from ..core.pypi_client import PyPIClient
 from ..core.stats_client import PyPIStatsClient
 from ..data.popular_packages import (
     GITHUB_REPO_PATTERNS,
-    PACKAGES_BY_NAME,
     estimate_downloads_for_period,
     get_popular_packages,
 )
@@ -73,11 +72,11 @@ async def get_package_download_stats(
 
             # Calculate trends and analysis
             analysis = _analyze_download_stats(download_data)
-            
+
             # Determine data source and add warnings if needed
             data_source = recent_stats.get("source", "pypistats.org")
             warning_note = recent_stats.get("note")
-            
+
             result = {
                 "package": package_name,
                 "metadata": package_metadata,
@@ -87,15 +86,17 @@ async def get_package_download_stats(
                 "data_source": data_source,
                 "timestamp": datetime.now().isoformat(),
             }
-            
+
             # Add warning/note about data quality if present
             if warning_note:
                 result["data_quality_note"] = warning_note
-                
+
             # Add reliability indicator
             if data_source == "fallback_estimates":
                 result["reliability"] = "estimated"
-                result["warning"] = "Data is estimated due to API unavailability. Actual download counts may differ significantly."
+                result["warning"] = (
+                    "Data is estimated due to API unavailability. Actual download counts may differ significantly."
+                )
             elif "stale" in warning_note.lower() if warning_note else False:
                 result["reliability"] = "cached"
                 result["warning"] = "Data may be outdated due to current API issues."
@@ -142,7 +143,7 @@ async def get_package_download_trends(
 
             # Analyze trends
             trend_analysis = _analyze_download_trends(time_series_data, include_mirrors)
-            
+
             # Determine data source and add warnings if needed
             data_source = overall_stats.get("source", "pypistats.org")
             warning_note = overall_stats.get("note")
@@ -155,15 +156,17 @@ async def get_package_download_trends(
                 "data_source": data_source,
                 "timestamp": datetime.now().isoformat(),
             }
-            
+
             # Add warning/note about data quality if present
             if warning_note:
                 result["data_quality_note"] = warning_note
-                
+
             # Add reliability indicator
             if data_source == "fallback_estimates":
                 result["reliability"] = "estimated"
-                result["warning"] = "Data is estimated due to API unavailability. Actual download trends may differ significantly."
+                result["warning"] = (
+                    "Data is estimated due to API unavailability. Actual download trends may differ significantly."
+                )
             elif "stale" in warning_note.lower() if warning_note else False:
                 result["reliability"] = "cached"
                 result["warning"] = "Data may be outdated due to current API issues."
@@ -201,56 +204,54 @@ async def get_top_packages_by_downloads(
     """
     # Get curated popular packages as base data
     curated_packages = get_popular_packages(limit=max(limit * 2, 100))
-    
+
     # Try to enhance with real PyPI stats
-    enhanced_packages = await _enhance_with_real_stats(
-        curated_packages, period, limit
-    )
-    
+    enhanced_packages = await _enhance_with_real_stats(curated_packages, period, limit)
+
     # Try to enhance with GitHub metrics
-    final_packages = await _enhance_with_github_stats(
-        enhanced_packages, limit
-    )
-    
+    final_packages = await _enhance_with_github_stats(enhanced_packages, limit)
+
     # Ensure we have the requested number of packages
     if len(final_packages) < limit:
         # Add more from curated list if needed
         additional_needed = limit - len(final_packages)
         existing_names = {pkg["package"] for pkg in final_packages}
-        
+
         for pkg_info in curated_packages:
             if pkg_info.name not in existing_names and additional_needed > 0:
-                final_packages.append({
-                    "package": pkg_info.name,
-                    "downloads": estimate_downloads_for_period(
-                        pkg_info.estimated_monthly_downloads, period
-                    ),
-                    "period": period,
-                    "data_source": "curated",
-                    "category": pkg_info.category,
-                    "description": pkg_info.description,
-                    "estimated": True,
-                })
+                final_packages.append(
+                    {
+                        "package": pkg_info.name,
+                        "downloads": estimate_downloads_for_period(
+                            pkg_info.estimated_monthly_downloads, period
+                        ),
+                        "period": period,
+                        "data_source": "curated",
+                        "category": pkg_info.category,
+                        "description": pkg_info.description,
+                        "estimated": True,
+                    }
+                )
                 additional_needed -= 1
-    
+
     # Sort by download count and assign ranks
     final_packages.sort(key=lambda x: x.get("downloads", 0), reverse=True)
     final_packages = final_packages[:limit]
-    
+
     for i, package in enumerate(final_packages):
         package["rank"] = i + 1
-    
+
     # Determine primary data source
     real_stats_count = len([p for p in final_packages if not p.get("estimated", False)])
     github_enhanced_count = len([p for p in final_packages if "github_stars" in p])
-    
+
     if real_stats_count > limit // 2:
         primary_source = "pypistats.org with curated fallback"
     elif github_enhanced_count > 0:
         primary_source = "curated data enhanced with GitHub metrics"
     else:
         primary_source = "curated popular packages database"
-    
+
     return {
         "top_packages": final_packages,
         "period": period,
@@ -386,50 +387,73 @@ def _analyze_download_trends(
 
 
 async def _enhance_with_real_stats(
-    curated_packages: List, period: str, limit: int
-) -> List[Dict[str, Any]]:
+    curated_packages: list, period: str, limit: int
+) -> list[dict[str, Any]]:
     """Try to enhance curated packages with real PyPI download statistics.
-    
+
     Args:
         curated_packages: List of PackageInfo objects from curated data
         period: Time period for stats
         limit: Maximum number of packages to process
-        
+
     Returns:
         List of enhanced package dictionaries
     """
     enhanced_packages = []
-    
+
     try:
         async with PyPIStatsClient() as stats_client:
             # Try to get real stats for top packages
-            for pkg_info in curated_packages[:limit * 2]:  # Try more than needed
+            for pkg_info in curated_packages[: limit * 2]:  # Try more than needed
                 try:
                     stats = await stats_client.get_recent_downloads(
                         pkg_info.name, period, use_cache=True
                     )
-                    
+
                     download_data = stats.get("data", {})
                     real_download_count = _extract_download_count(download_data, period)
-                    
+
                     if real_download_count > 0:
                         # Use real stats
-                        enhanced_packages.append({
-                            "package": pkg_info.name,
-                            "downloads": real_download_count,
-                            "period": period,
-                            "data_source": "pypistats.org",
-                            "category": pkg_info.category,
-                            "description": pkg_info.description,
-                            "estimated": False,
-                        })
-                        logger.debug(f"Got real stats for {pkg_info.name}: {real_download_count}")
+                        enhanced_packages.append(
+                            {
+                                "package": pkg_info.name,
+                                "downloads": real_download_count,
+                                "period": period,
+                                "data_source": "pypistats.org",
+                                "category": pkg_info.category,
+                                "description": pkg_info.description,
+                                "estimated": False,
+                            }
+                        )
+                        logger.debug(
+                            f"Got real stats for {pkg_info.name}: {real_download_count}"
+                        )
                     else:
                         # Fall back to estimated downloads
                         estimated_downloads = estimate_downloads_for_period(
                             pkg_info.estimated_monthly_downloads, period
                         )
-                        enhanced_packages.append({
+                        enhanced_packages.append(
+                            {
+                                "package": pkg_info.name,
+                                "downloads": estimated_downloads,
+                                "period": period,
+                                "data_source": "estimated",
+                                "category": pkg_info.category,
+                                "description": pkg_info.description,
+                                "estimated": True,
+                            }
+                        )
+
+                except Exception as e:
+                    logger.debug(f"Failed to get real stats for {pkg_info.name}: {e}")
+                    # Fall back to estimated downloads
+                    estimated_downloads = estimate_downloads_for_period(
+                        pkg_info.estimated_monthly_downloads, period
+                    )
+                    enhanced_packages.append(
+                        {
                             "package": pkg_info.name,
                             "downloads": estimated_downloads,
                             "period": period,
@@ -437,28 +461,13 @@ async def _enhance_with_real_stats(
                             "category": pkg_info.category,
                             "description": pkg_info.description,
                             "estimated": True,
-                        })
-                        
-                except Exception as e:
-                    logger.debug(f"Failed to get real stats for {pkg_info.name}: {e}")
-                    # Fall back to estimated downloads
-                    estimated_downloads = estimate_downloads_for_period(
-                        pkg_info.estimated_monthly_downloads, period
+                        }
                     )
-                    enhanced_packages.append({
-                        "package": pkg_info.name,
-                        "downloads": estimated_downloads,
-                        "period": period,
-                        "data_source": "estimated",
-                        "category": pkg_info.category,
-                        "description": pkg_info.description,
-                        "estimated": True,
-                    })
-                    
+
                 # Stop if we have enough packages
                 if len(enhanced_packages) >= limit:
                     break
-                    
+
     except Exception as e:
         logger.warning(f"PyPI stats client failed entirely: {e}")
         # Fall back to all estimated data
@@ -466,52 +475,56 @@ async def _enhance_with_real_stats(
             estimated_downloads = estimate_downloads_for_period(
                 pkg_info.estimated_monthly_downloads, period
             )
-            enhanced_packages.append({
-                "package": pkg_info.name,
-                "downloads": estimated_downloads,
-                "period": period,
-                "data_source": "estimated",
-                "category": pkg_info.category,
-                "description": pkg_info.description,
-                "estimated": True,
-            })
-    
+            enhanced_packages.append(
+                {
+                    "package": pkg_info.name,
+                    "downloads": estimated_downloads,
+                    "period": period,
+                    "data_source": "estimated",
+                    "category": pkg_info.category,
+                    "description": pkg_info.description,
+                    "estimated": True,
+                }
+            )
+
     return enhanced_packages
 
 
 async def _enhance_with_github_stats(
-    packages: List[Dict[str, Any]], limit: int
-) -> List[Dict[str, Any]]:
+    packages: list[dict[str, Any]], limit: int
+) -> list[dict[str, Any]]:
     """Try to enhance packages with GitHub repository statistics.
-    
+
     Args:
         packages: List of package dictionaries to enhance
         limit: Maximum number of packages to process
-        
+
     Returns:
         List of enhanced package dictionaries
     """
     github_token = os.getenv("GITHUB_TOKEN")  # Optional GitHub token
-    
+
     try:
         async with GitHubAPIClient(github_token=github_token) as github_client:
             # Get GitHub repo paths for packages that have them
             repo_paths = []
             package_to_repo = {}
-            
+
             for pkg in packages[:limit]:
                 repo_path = GITHUB_REPO_PATTERNS.get(pkg["package"])
                 if repo_path:
                     repo_paths.append(repo_path)
                     package_to_repo[pkg["package"]] = repo_path
-            
+
             if repo_paths:
                 # Fetch GitHub stats for all repositories concurrently
-                logger.debug(f"Fetching GitHub stats for {len(repo_paths)} repositories")
+                logger.debug(
+                    f"Fetching GitHub stats for {len(repo_paths)} repositories"
+                )
                 repo_stats = await github_client.get_multiple_repo_stats(
                     repo_paths, use_cache=True, max_concurrent=3
                 )
-                
+
                 # Enhance packages with GitHub data
                 for pkg in packages:
                     repo_path = package_to_repo.get(pkg["package"])
@@ -523,38 +536,42 @@ async def _enhance_with_github_stats(
                             pkg["github_updated_at"] = stats["updated_at"]
                             pkg["github_language"] = stats["language"]
                             pkg["github_topics"] = stats.get("topics", [])
-                            
+
                             # Adjust download estimates based on GitHub popularity
                             if pkg.get("estimated", False):
                                 popularity_boost = _calculate_popularity_boost(stats)
-                                pkg["downloads"] = int(pkg["downloads"] * popularity_boost)
+                                pkg["downloads"] = int(
+                                    pkg["downloads"] * popularity_boost
+                                )
                                 pkg["github_enhanced"] = True
-                                
-                logger.info(f"Enhanced {len([p for p in packages if 'github_stars' in p])} packages with GitHub data")
-                
+
+                logger.info(
+                    f"Enhanced {len([p for p in packages if 'github_stars' in p])} packages with GitHub data"
+                )
+
     except Exception as e:
         logger.debug(f"GitHub enhancement failed: {e}")
         # Continue without GitHub enhancement
         pass
-    
+
     return packages
 
 
-def _calculate_popularity_boost(github_stats: Dict[str, Any]) -> float:
+def _calculate_popularity_boost(github_stats: dict[str, Any]) -> float:
     """Calculate a popularity boost multiplier based on GitHub metrics.
-    
+
     Args:
         github_stats: GitHub repository statistics
-        
+
     Returns:
         Multiplier between 0.5 and 2.0 based on popularity
     """
     stars = github_stats.get("stars", 0)
     forks = github_stats.get("forks", 0)
-    
+
     # Base multiplier
     multiplier = 1.0
-    
+
     # Adjust based on stars (logarithmic scale)
     if stars > 50000:
         multiplier *= 1.5
@@ -568,7 +585,7 @@ def _calculate_popularity_boost(github_stats: Dict[str, Any]) -> float:
         multiplier *= 0.9
     elif stars < 500:
         multiplier *= 0.8
-    
+
     # Adjust based on forks (indicates active usage)
     if forks > 10000:
         multiplier *= 1.2
@@ -576,7 +593,7 @@ def _calculate_popularity_boost(github_stats: Dict[str, Any]) -> float:
         multiplier *= 1.1
     elif forks < 100:
         multiplier *= 0.9
-    
+
     # Ensure multiplier stays within reasonable bounds
     return max(0.5, min(2.0, multiplier))
 

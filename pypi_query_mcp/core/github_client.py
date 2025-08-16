@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -17,7 +17,7 @@ class GitHubAPIClient:
         timeout: float = 10.0,
         max_retries: int = 2,
         retry_delay: float = 1.0,
-        github_token: Optional[str] = None,
+        github_token: str | None = None,
     ):
         """Initialize GitHub API client.
 
@@ -33,7 +33,7 @@ class GitHubAPIClient:
         self.retry_delay = retry_delay
 
         # Simple in-memory cache for repository data
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
         self._cache_ttl = 3600  # 1 hour cache
 
         # HTTP client configuration
@@ -41,7 +41,7 @@ class GitHubAPIClient:
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "pypi-query-mcp-server/0.1.0",
         }
-        
+
         if github_token:
             headers["Authorization"] = f"token {github_token}"
 
@@ -67,12 +67,13 @@ class GitHubAPIClient:
         """Generate cache key for repository data."""
         return f"repo:{repo}"
 
-    def _is_cache_valid(self, cache_entry: Dict[str, Any]) -> bool:
+    def _is_cache_valid(self, cache_entry: dict[str, Any]) -> bool:
         """Check if cache entry is still valid."""
         import time
+
         return time.time() - cache_entry.get("timestamp", 0) < self._cache_ttl
 
-    async def _make_request(self, url: str) -> Optional[Dict[str, Any]]:
+    async def _make_request(self, url: str) -> dict[str, Any] | None:
         """Make HTTP request with retry logic and error handling.
 
         Args:
@@ -85,7 +86,9 @@ class GitHubAPIClient:
 
         for attempt in range(self.max_retries + 1):
             try:
-                logger.debug(f"Making GitHub API request to {url} (attempt {attempt + 1})")
+                logger.debug(
+                    f"Making GitHub API request to {url} (attempt {attempt + 1})"
+                )
 
                 response = await self._client.get(url)
 
@@ -100,12 +103,16 @@ class GitHubAPIClient:
                     logger.warning(f"GitHub API rate limit or permission denied: {url}")
                     return None
                 elif response.status_code >= 500:
-                    logger.warning(f"GitHub API server error {response.status_code}: {url}")
+                    logger.warning(
+                        f"GitHub API server error {response.status_code}: {url}"
+                    )
                     if attempt < self.max_retries:
                         continue
                     return None
                 else:
-                    logger.warning(f"Unexpected GitHub API status {response.status_code}: {url}")
+                    logger.warning(
+                        f"Unexpected GitHub API status {response.status_code}: {url}"
+                    )
                     return None
 
             except httpx.TimeoutException:
@@ -120,13 +127,17 @@ class GitHubAPIClient:
 
             # Wait before retry (except on last attempt)
             if attempt < self.max_retries:
-                await asyncio.sleep(self.retry_delay * (2 ** attempt))
+                await asyncio.sleep(self.retry_delay * (2**attempt))
 
         # If we get here, all retries failed
-        logger.error(f"Failed to fetch GitHub data after {self.max_retries + 1} attempts: {last_exception}")
+        logger.error(
+            f"Failed to fetch GitHub data after {self.max_retries + 1} attempts: {last_exception}"
+        )
         return None
 
-    async def get_repository_stats(self, repo_path: str, use_cache: bool = True) -> Optional[Dict[str, Any]]:
+    async def get_repository_stats(
+        self, repo_path: str, use_cache: bool = True
+    ) -> dict[str, Any] | None:
         """Get repository statistics from GitHub API.
 
         Args:
@@ -147,10 +158,10 @@ class GitHubAPIClient:
 
         # Make API request
         url = f"{self.base_url}/repos/{repo_path}"
-        
+
         try:
             data = await self._make_request(url)
-            
+
             if data:
                 # Extract relevant statistics
                 stats = {
@@ -171,14 +182,19 @@ class GitHubAPIClient:
                     "has_wiki": data.get("has_wiki", False),
                     "archived": data.get("archived", False),
                     "disabled": data.get("disabled", False),
-                    "license": data.get("license", {}).get("name") if data.get("license") else None,
+                    "license": data.get("license", {}).get("name")
+                    if data.get("license")
+                    else None,
                 }
 
                 # Cache the result
                 import time
+
                 self._cache[cache_key] = {"data": stats, "timestamp": time.time()}
 
-                logger.debug(f"Fetched GitHub stats for {repo_path}: {stats['stars']} stars")
+                logger.debug(
+                    f"Fetched GitHub stats for {repo_path}: {stats['stars']} stars"
+                )
                 return stats
             else:
                 return None
@@ -188,11 +204,8 @@ class GitHubAPIClient:
             return None
 
     async def get_multiple_repo_stats(
-        self, 
-        repo_paths: list[str], 
-        use_cache: bool = True,
-        max_concurrent: int = 5
-    ) -> Dict[str, Optional[Dict[str, Any]]]:
+        self, repo_paths: list[str], use_cache: bool = True, max_concurrent: int = 5
+    ) -> dict[str, dict[str, Any] | None]:
         """Get statistics for multiple repositories concurrently.
 
         Args:
@@ -205,7 +218,7 @@ class GitHubAPIClient:
         """
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def fetch_repo_stats(repo_path: str) -> tuple[str, Optional[Dict[str, Any]]]:
+        async def fetch_repo_stats(repo_path: str) -> tuple[str, dict[str, Any] | None]:
             async with semaphore:
                 stats = await self.get_repository_stats(repo_path, use_cache)
                 return repo_path, stats
@@ -220,7 +233,7 @@ class GitHubAPIClient:
             if isinstance(result, Exception):
                 logger.error(f"Error in concurrent GitHub fetch: {result}")
                 continue
-            
+
             repo_path, stats = result
             repo_stats[repo_path] = stats
 
@@ -231,14 +244,14 @@ class GitHubAPIClient:
         self._cache.clear()
         logger.debug("GitHub cache cleared")
 
-    async def get_rate_limit(self) -> Optional[Dict[str, Any]]:
+    async def get_rate_limit(self) -> dict[str, Any] | None:
         """Get current GitHub API rate limit status.
 
         Returns:
             Dictionary containing rate limit information
         """
         url = f"{self.base_url}/rate_limit"
-        
+
         try:
             data = await self._make_request(url)
             if data:

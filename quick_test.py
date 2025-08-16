@@ -2,8 +2,9 @@
 """Quick test to verify fallback mechanism works."""
 
 import asyncio
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath("."))
 
 from pypi_query_mcp.tools.download_stats import get_package_download_stats
@@ -12,23 +13,23 @@ from pypi_query_mcp.tools.download_stats import get_package_download_stats
 async def quick_test():
     """Quick test with a single package."""
     print("Testing fallback mechanism with requests package...")
-    
+
     try:
         stats = await get_package_download_stats("requests", period="month")
-        
-        print(f"✅ Success!")
+
+        print("✅ Success!")
         print(f"Package: {stats.get('package')}")
         print(f"Data Source: {stats.get('data_source')}")
         print(f"Reliability: {stats.get('reliability')}")
-        
-        if stats.get('warning'):
+
+        if stats.get("warning"):
             print(f"⚠️  Warning: {stats['warning']}")
-        
+
         downloads = stats.get("downloads", {})
         print(f"Downloads - Month: {downloads.get('last_month', 0):,}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return False

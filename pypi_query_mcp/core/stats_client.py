@@ -5,7 +5,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -50,7 +50,7 @@ class PyPIStatsClient:
         self._cache: dict[str, dict[str, Any]] = {}
         self._cache_ttl = 86400  # 24 hours (increased for resilience)
         self._fallback_cache_ttl = 604800  # 7 days for fallback data
-        
+
         # Track API health for smart fallback decisions
         self._api_health = {
             "last_success": None,
@@ -106,31 +106,33 @@ class PyPIStatsClient:
         )
         return f"{endpoint}:{package_name}:{param_str}"
 
-    def _is_cache_valid(self, cache_entry: dict[str, Any], fallback: bool = False) -> bool:
+    def _is_cache_valid(
+        self, cache_entry: dict[str, Any], fallback: bool = False
+    ) -> bool:
         """Check if cache entry is still valid.
-        
+
         Args:
             cache_entry: Cache entry to validate
             fallback: Whether to use fallback cache TTL (longer for resilience)
         """
         ttl = self._fallback_cache_ttl if fallback else self._cache_ttl
         return time.time() - cache_entry.get("timestamp", 0) < ttl
-    
+
     def _should_use_fallback(self) -> bool:
         """Determine if fallback mechanisms should be used based on API health."""
         if not self.fallback_enabled:
             return False
-            
+
         # Use fallback if we've had multiple consecutive failures
         if self._api_health["consecutive_failures"] >= 3:
             return True
-            
+
         # Use fallback if last success was more than 1 hour ago
         if self._api_health["last_success"]:
             time_since_success = time.time() - self._api_health["last_success"]
             if time_since_success > 3600:  # 1 hour
                 return True
-                
+
         return False
 
     async def _make_request(self, url: str) -> dict[str, Any]:
@@ -152,7 +154,9 @@ class PyPIStatsClient:
 
         for attempt in range(self.max_retries + 1):
             try:
-                logger.debug(f"Making request to {url} (attempt {attempt + 1}/{self.max_retries + 1})")
+                logger.debug(
+                    f"Making request to {url} (attempt {attempt + 1}/{self.max_retries + 1})"
+                )
 
                 response = await self._client.get(url)
 
@@ -171,16 +175,25 @@ class PyPIStatsClient:
                 elif response.status_code == 429:
                     retry_after = response.headers.get("Retry-After")
                     retry_after_int = int(retry_after) if retry_after else None
-                    self._update_api_failure(f"Rate limit exceeded (retry after {retry_after_int}s)")
+                    self._update_api_failure(
+                        f"Rate limit exceeded (retry after {retry_after_int}s)"
+                    )
                     raise RateLimitError(retry_after_int)
                 elif response.status_code >= 500:
                     error_msg = f"Server error: HTTP {response.status_code}"
                     self._update_api_failure(error_msg)
-                    
+
                     # For 502/503/504 errors, continue retrying
-                    if response.status_code in [502, 503, 504] and attempt < self.max_retries:
-                        last_exception = PyPIServerError(response.status_code, error_msg)
-                        logger.warning(f"Retryable server error {response.status_code}, attempt {attempt + 1}")
+                    if (
+                        response.status_code in [502, 503, 504]
+                        and attempt < self.max_retries
+                    ):
+                        last_exception = PyPIServerError(
+                            response.status_code, error_msg
+                        )
+                        logger.warning(
+                            f"Retryable server error {response.status_code}, attempt {attempt + 1}"
+                        )
                     else:
                         raise PyPIServerError(response.status_code, error_msg)
                 else:
@@ -205,7 +218,9 @@ class PyPIStatsClient:
                 # Only retry certain server errors
                 if e.status_code in [502, 503, 504] and attempt < self.max_retries:
                     last_exception = e
-                    logger.warning(f"Retrying server error {e.status_code}, attempt {attempt + 1}")
+                    logger.warning(
+                        f"Retrying server error {e.status_code}, attempt {attempt + 1}"
+                    )
                 else:
                     raise
             except Exception as e:
@@ -216,7 +231,7 @@ class PyPIStatsClient:
 
             # Calculate exponential backoff with jitter
             if attempt < self.max_retries:
-                base_delay = self.retry_delay * (2 ** attempt)
+                base_delay = self.retry_delay * (2**attempt)
                 jitter = random.uniform(0.1, 0.3) * base_delay  # Add 10-30% jitter
                 delay = base_delay + jitter
                 logger.debug(f"Waiting {delay:.2f}s before retry...")
@@ -227,21 +242,25 @@ class PyPIStatsClient:
             raise last_exception
         else:
             raise NetworkError("All retry attempts failed with unknown error")
-    
+
     def _update_api_failure(self, error_msg: str) -> None:
         """Update API health tracking on failure."""
         self._api_health["consecutive_failures"] += 1
         self._api_health["last_error"] = error_msg
-        logger.debug(f"API failure count: {self._api_health['consecutive_failures']}, error: {error_msg}")
-    
-    def _generate_fallback_recent_downloads(self, package_name: str, period: str = "month") -> dict[str, Any]:
+        logger.debug(
+            f"API failure count: {self._api_health['consecutive_failures']}, error: {error_msg}"
+        )
+
+    def _generate_fallback_recent_downloads(
+        self, package_name: str, period: str = "month"
+    ) -> dict[str, Any]:
         """Generate fallback download statistics when API is unavailable.
-        
+
         This provides estimated download counts based on package popularity patterns
         to ensure the system remains functional during API outages.
         """
         logger.warning(f"Generating fallback download data for {package_name}")
-        
+
         # Base estimates for popular packages (these are conservative estimates)
         popular_packages = {
             "requests": {"day": 1500000, "week": 10500000, "month": 45000000},
@@ -270,39 +289,50 @@ class PyPIStatsClient:
             "pandas": {"day": 200000, "week": 1400000, "month": 6000000},
             "sqlalchemy": {"day": 90000, "week": 630000, "month": 2700000},
         }
-        
+
         # Get estimates for known packages or generate based on package name characteristics
         if package_name.lower() in popular_packages:
             estimates = popular_packages[package_name.lower()]
         else:
             # Generate estimates based on common package patterns
-            if any(keyword in package_name.lower() for keyword in ["test", "dev", "debug"]):
+            if any(
+                keyword in package_name.lower() for keyword in ["test", "dev", "debug"]
+            ):
                 # Development/testing packages - lower usage
                 base_daily = random.randint(100, 1000)
-            elif any(keyword in package_name.lower() for keyword in ["aws", "google", "microsoft", "azure"]):
+            elif any(
+                keyword in package_name.lower()
+                for keyword in ["aws", "google", "microsoft", "azure"]
+            ):
                 # Cloud provider packages - higher usage
                 base_daily = random.randint(10000, 50000)
-            elif any(keyword in package_name.lower() for keyword in ["http", "request", "client", "api"]):
+            elif any(
+                keyword in package_name.lower()
+                for keyword in ["http", "request", "client", "api"]
+            ):
                 # HTTP/API packages - moderate to high usage
                 base_daily = random.randint(5000, 25000)
-            elif any(keyword in package_name.lower() for keyword in ["data", "pandas", "numpy", "scipy"]):
+            elif any(
+                keyword in package_name.lower()
+                for keyword in ["data", "pandas", "numpy", "scipy"]
+            ):
                 # Data science packages - high usage
                 base_daily = random.randint(15000, 75000)
             else:
                 # Generic packages - moderate usage
                 base_daily = random.randint(1000, 10000)
-            
+
             estimates = {
                 "day": base_daily,
                 "week": base_daily * 7,
                 "month": base_daily * 30,
             }
-        
+
         # Add some realistic variation (±20%)
         variation = random.uniform(0.8, 1.2)
         for key in estimates:
             estimates[key] = int(estimates[key] * variation)
-        
+
         return {
             "data": {
                 "last_day": estimates["day"],
@@ -314,42 +344,48 @@ class PyPIStatsClient:
             "source": "fallback_estimates",
             "note": "Estimated data due to API unavailability. Actual values may differ.",
         }
-    
-    def _generate_fallback_overall_downloads(self, package_name: str, mirrors: bool = False) -> dict[str, Any]:
+
+    def _generate_fallback_overall_downloads(
+        self, package_name: str, mirrors: bool = False
+    ) -> dict[str, Any]:
         """Generate fallback time series data when API is unavailable."""
         logger.warning(f"Generating fallback time series data for {package_name}")
-        
+
         # Generate 180 days of synthetic time series data
         time_series = []
         base_date = datetime.now() - timedelta(days=180)
-        
+
         # Get base daily estimate from recent downloads fallback
         recent_fallback = self._generate_fallback_recent_downloads(package_name)
         base_daily = recent_fallback["data"]["last_day"]
-        
+
         for i in range(180):
             current_date = base_date + timedelta(days=i)
-            
+
             # Add weekly and seasonal patterns
             day_of_week = current_date.weekday()
             # Lower downloads on weekends
             week_factor = 0.7 if day_of_week >= 5 else 1.0
-            
+
             # Add some growth trend (packages generally grow over time)
             growth_factor = 1.0 + (i / 180) * 0.3  # 30% growth over 180 days
-            
+
             # Add random daily variation
             daily_variation = random.uniform(0.7, 1.3)
-            
-            daily_downloads = int(base_daily * week_factor * growth_factor * daily_variation)
-            
+
+            daily_downloads = int(
+                base_daily * week_factor * growth_factor * daily_variation
+            )
+
             category = "with_mirrors" if mirrors else "without_mirrors"
-            time_series.append({
-                "category": category,
-                "date": current_date.strftime("%Y-%m-%d"),
-                "downloads": daily_downloads,
-            })
-        
+            time_series.append(
+                {
+                    "category": category,
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "downloads": daily_downloads,
+                }
+            )
+
         return {
             "data": time_series,
             "package": package_name,
@@ -385,16 +421,24 @@ class PyPIStatsClient:
             if self._is_cache_valid(cache_entry):
                 logger.debug(f"Using cached recent downloads for: {normalized_name}")
                 return cache_entry["data"]
-            elif self._should_use_fallback() and self._is_cache_valid(cache_entry, fallback=True):
-                logger.info(f"Using extended cache (fallback mode) for: {normalized_name}")
+            elif self._should_use_fallback() and self._is_cache_valid(
+                cache_entry, fallback=True
+            ):
+                logger.info(
+                    f"Using extended cache (fallback mode) for: {normalized_name}"
+                )
                 cache_entry["data"]["note"] = "Extended cache data due to API issues"
                 return cache_entry["data"]
 
         # Check if we should use fallback immediately
         if self._should_use_fallback():
-            logger.warning(f"API health poor, using fallback data for: {normalized_name}")
-            fallback_data = self._generate_fallback_recent_downloads(normalized_name, period)
-            
+            logger.warning(
+                f"API health poor, using fallback data for: {normalized_name}"
+            )
+            fallback_data = self._generate_fallback_recent_downloads(
+                normalized_name, period
+            )
+
             # Cache fallback data with extended TTL
             self._cache[cache_key] = {"data": fallback_data, "timestamp": time.time()}
             return fallback_data
@@ -418,28 +462,39 @@ class PyPIStatsClient:
 
         except (PyPIServerError, NetworkError) as e:
             logger.error(f"API request failed for {normalized_name}: {e}")
-            
+
             # Try to use stale cache data if available
             if use_cache and cache_key in self._cache:
                 cache_entry = self._cache[cache_key]
-                logger.warning(f"Using stale cache data for {normalized_name} due to API failure")
+                logger.warning(
+                    f"Using stale cache data for {normalized_name} due to API failure"
+                )
                 cache_entry["data"]["note"] = f"Stale cache data due to API error: {e}"
                 return cache_entry["data"]
-            
+
             # Last resort: generate fallback data
             if self.fallback_enabled:
-                logger.warning(f"Generating fallback data for {normalized_name} due to API failure")
-                fallback_data = self._generate_fallback_recent_downloads(normalized_name, period)
-                
+                logger.warning(
+                    f"Generating fallback data for {normalized_name} due to API failure"
+                )
+                fallback_data = self._generate_fallback_recent_downloads(
+                    normalized_name, period
+                )
+
                 # Cache fallback data
-                self._cache[cache_key] = {"data": fallback_data, "timestamp": time.time()}
+                self._cache[cache_key] = {
+                    "data": fallback_data,
+                    "timestamp": time.time(),
+                }
                 return fallback_data
-            
+
             # If fallback is disabled, re-raise the original exception
             raise
 
         except Exception as e:
-            logger.error(f"Unexpected error fetching recent downloads for {normalized_name}: {e}")
+            logger.error(
+                f"Unexpected error fetching recent downloads for {normalized_name}: {e}"
+            )
             raise
 
     async def get_overall_downloads(
@@ -469,16 +524,24 @@ class PyPIStatsClient:
             if self._is_cache_valid(cache_entry):
                 logger.debug(f"Using cached overall downloads for: {normalized_name}")
                 return cache_entry["data"]
-            elif self._should_use_fallback() and self._is_cache_valid(cache_entry, fallback=True):
-                logger.info(f"Using extended cache (fallback mode) for: {normalized_name}")
+            elif self._should_use_fallback() and self._is_cache_valid(
+                cache_entry, fallback=True
+            ):
+                logger.info(
+                    f"Using extended cache (fallback mode) for: {normalized_name}"
+                )
                 cache_entry["data"]["note"] = "Extended cache data due to API issues"
                 return cache_entry["data"]
 
         # Check if we should use fallback immediately
         if self._should_use_fallback():
-            logger.warning(f"API health poor, using fallback data for: {normalized_name}")
-            fallback_data = self._generate_fallback_overall_downloads(normalized_name, mirrors)
-            
+            logger.warning(
+                f"API health poor, using fallback data for: {normalized_name}"
+            )
+            fallback_data = self._generate_fallback_overall_downloads(
+                normalized_name, mirrors
+            )
+
             # Cache fallback data with extended TTL
             self._cache[cache_key] = {"data": fallback_data, "timestamp": time.time()}
             return fallback_data
@@ -502,28 +565,39 @@ class PyPIStatsClient:
 
         except (PyPIServerError, NetworkError) as e:
             logger.error(f"API request failed for {normalized_name}: {e}")
-            
+
             # Try to use stale cache data if available
             if use_cache and cache_key in self._cache:
                 cache_entry = self._cache[cache_key]
-                logger.warning(f"Using stale cache data for {normalized_name} due to API failure")
+                logger.warning(
+                    f"Using stale cache data for {normalized_name} due to API failure"
+                )
                 cache_entry["data"]["note"] = f"Stale cache data due to API error: {e}"
                 return cache_entry["data"]
-            
+
             # Last resort: generate fallback data
             if self.fallback_enabled:
-                logger.warning(f"Generating fallback data for {normalized_name} due to API failure")
-                fallback_data = self._generate_fallback_overall_downloads(normalized_name, mirrors)
-                
+                logger.warning(
+                    f"Generating fallback data for {normalized_name} due to API failure"
+                )
+                fallback_data = self._generate_fallback_overall_downloads(
+                    normalized_name, mirrors
+                )
+
                 # Cache fallback data
-                self._cache[cache_key] = {"data": fallback_data, "timestamp": time.time()}
+                self._cache[cache_key] = {
+                    "data": fallback_data,
+                    "timestamp": time.time(),
+                }
                 return fallback_data
-            
+
             # If fallback is disabled, re-raise the original exception
             raise
 
         except Exception as e:
-            logger.error(f"Unexpected error fetching overall downloads for {normalized_name}: {e}")
+            logger.error(
+                f"Unexpected error fetching overall downloads for {normalized_name}: {e}"
+            )
             raise
 
     def clear_cache(self):

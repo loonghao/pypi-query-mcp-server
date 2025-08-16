@@ -1,6 +1,5 @@
 """Tests for semantic version sorting functionality."""
 
-import pytest
 from pypi_query_mcp.core.version_utils import sort_versions_semantically
 
 
@@ -39,7 +38,7 @@ class TestSemanticVersionSorting:
         """Test development and post-release versions."""
         versions = ["1.0.0", "1.0.0.post1", "1.0.0.dev0", "1.0.1"]
         result = sort_versions_semantically(versions, reverse=True)
-        
+
         # 1.0.1 should be first, then 1.0.0.post1, then 1.0.0, then 1.0.0.dev0
         assert result[0] == "1.0.1"
         assert result[1] == "1.0.0.post1"
@@ -50,7 +49,7 @@ class TestSemanticVersionSorting:
         """Test that invalid versions fall back to string sorting."""
         versions = ["1.0.0", "invalid-version", "another-invalid", "2.0.0"]
         result = sort_versions_semantically(versions, reverse=True)
-        
+
         # Valid versions should come first
         assert result[0] == "2.0.0"
         assert result[1] == "1.0.0"
@@ -79,7 +78,7 @@ class TestSemanticVersionSorting:
         """Test sorting with mixed version formats."""
         versions = ["1.0", "1.0.0", "1.0.1", "v1.0.2"]  # v1.0.2 might be invalid
         result = sort_versions_semantically(versions, reverse=True)
-        
+
         # Should handle mixed formats gracefully
         assert len(result) == 4
         assert "1.0.1" in result

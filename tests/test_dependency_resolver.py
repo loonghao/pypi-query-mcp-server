@@ -99,7 +99,7 @@ class TestDependencyResolver:
                 "requires_dist": [],
             }
         }
-        
+
         mock_pytest_data = {
             "info": {
                 "name": "pytest",
@@ -112,7 +112,7 @@ class TestDependencyResolver:
         with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             # Setup mock to return different data based on package name
             def mock_get_package_info(package_name):
                 if package_name.lower() == "mock-test-package-12345":
@@ -122,8 +122,14 @@ class TestDependencyResolver:
                 elif package_name.lower() == "pytest":
                     return mock_pytest_data
                 else:
-                    return {"info": {"name": package_name, "version": "1.0.0", "requires_dist": []}}
-            
+                    return {
+                        "info": {
+                            "name": package_name,
+                            "version": "1.0.0",
+                            "requires_dist": [],
+                        }
+                    }
+
             mock_client.get_package_info.side_effect = mock_get_package_info
 
             result = await resolver.resolve_dependencies(
@@ -132,7 +138,7 @@ class TestDependencyResolver:
 
             assert result["include_extras"] == ["test"]
             assert "dependency_tree" in result
-            
+
             # Verify that extras are properly resolved and included
             assert result["summary"]["total_extra_dependencies"] == 1
             main_pkg = result["dependency_tree"]["mock-test-package-12345"]
@@ -166,7 +172,7 @@ class TestDependencyResolver:
                 "requires_dist": [],
             }
         }
-        
+
         mock_pytest_data = {
             "info": {
                 "name": "pytest",
@@ -175,7 +181,7 @@ class TestDependencyResolver:
                 "requires_dist": [],
             }
         }
-        
+
         mock_coverage_data = {
             "info": {
                 "name": "coverage",
@@ -188,7 +194,7 @@ class TestDependencyResolver:
         with patch("pypi_query_mcp.core.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             # Setup mock to return different data based on package name
             def mock_get_package_info(package_name):
                 if package_name.lower() == "test-package":
@@ -200,24 +206,33 @@ class TestDependencyResolver:
                 elif package_name.lower() == "coverage":
                     return mock_coverage_data
                 else:
-                    return {"info": {"name": package_name, "version": "1.0.0", "requires_dist": []}}
-            
+                    return {
+                        "info": {
+                            "name": package_name,
+                            "version": "1.0.0",
+                            "requires_dist": [],
+                        }
+                    }
+
             mock_client.get_package_info.side_effect = mock_get_package_info
 
             # Test with Python 3.11 - should not include typing-extensions but should include extras
             result = await resolver.resolve_dependencies(
-                "test-package", python_version="3.11", include_extras=["test"], max_depth=2
+                "test-package",
+                python_version="3.11",
+                include_extras=["test"],
+                max_depth=2,
             )
 
             assert result["include_extras"] == ["test"]
             assert result["python_version"] == "3.11"
-            
+
             # Verify that extras are properly resolved
             assert result["summary"]["total_extra_dependencies"] == 2
             main_pkg = result["dependency_tree"]["test-package"]
             assert "test" in main_pkg["dependencies"]["extras"]
             assert len(main_pkg["dependencies"]["extras"]["test"]) == 2
-            
+
             # Verify Python version filtering worked for runtime deps but not extras
             runtime_deps = main_pkg["dependencies"]["runtime"]
             assert len(runtime_deps) == 1  # Only requests, not typing-extensions
