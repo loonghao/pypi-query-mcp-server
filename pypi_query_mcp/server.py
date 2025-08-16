@@ -52,6 +52,9 @@ from .tools import (
     set_package_visibility,
     update_package_metadata,
     upload_package_to_pypi,
+    get_pypi_package_reviews,
+    manage_pypi_package_discussions,
+    get_pypi_maintainer_contacts,
 )
 from .tools.discovery import (
     get_pypi_package_recommendations,
@@ -2367,6 +2370,196 @@ async def get_pypi_package_recommendations_tool(
             "error_type": "UnexpectedError",
             "package_name": package_name,
             "recommendation_type": recommendation_type,
+        }
+
+
+@mcp.tool()
+async def get_pypi_package_reviews_tool(
+    package_name: str,
+    include_ratings: bool = True,
+    include_community_feedback: bool = True,
+    sentiment_analysis: bool = False,
+    max_reviews: int = 50,
+) -> dict[str, Any]:
+    """Get community reviews and feedback for a PyPI package.
+    
+    This tool aggregates community feedback from various sources including
+    GitHub discussions, issues, Stack Overflow mentions, and social media to
+    provide comprehensive community sentiment analysis.
+    
+    Note: This is a future-ready implementation as PyPI doesn't currently have
+    a native review system. The function prepares for when such features become
+    available while providing useful community sentiment analysis from existing sources.
+    
+    Args:
+        package_name: Name of the package to get reviews for
+        include_ratings: Whether to include numerical ratings (when available)
+        include_community_feedback: Whether to include textual feedback analysis
+        sentiment_analysis: Whether to perform sentiment analysis on feedback
+        max_reviews: Maximum number of reviews to return
+        
+    Returns:
+        Dictionary containing review and feedback information including:
+        - Community sentiment and ratings
+        - Feedback from GitHub issues and discussions
+        - Social media mentions and sentiment
+        - Quality indicators and community health metrics
+        - Future-ready structure for native PyPI reviews
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting community reviews for package: {package_name}")
+        result = await get_pypi_package_reviews(
+            package_name=package_name,
+            include_ratings=include_ratings,
+            include_community_feedback=include_community_feedback,
+            sentiment_analysis=sentiment_analysis,
+            max_reviews=max_reviews,
+        )
+        logger.info(f"Successfully retrieved community reviews for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error getting reviews for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error getting reviews for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def manage_pypi_package_discussions_tool(
+    package_name: str,
+    action: str = "get_status",
+    discussion_settings: dict[str, Any] | None = None,
+    moderator_controls: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Manage and interact with PyPI package discussions.
+    
+    This tool provides management capabilities for package discussions,
+    including enabling/disabling discussions, setting moderation policies,
+    and retrieving discussion status and metrics.
+    
+    Note: This is a future-ready implementation as PyPI doesn't currently have
+    native discussion features. The function prepares for when such features
+    become available while providing integration with existing discussion platforms.
+    
+    Args:
+        package_name: Name of the package to manage discussions for
+        action: Action to perform ('get_status', 'enable', 'disable', 'configure', 'moderate')
+        discussion_settings: Settings for discussions (when enabling/configuring)
+        moderator_controls: Moderation settings and controls
+        
+    Returns:
+        Dictionary containing discussion management results including:
+        - Current discussion status and settings
+        - Available discussion platforms and integration status
+        - Moderation settings and community guidelines
+        - Discussion metrics and engagement data
+        - Future-ready structure for native PyPI discussions
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing discussions for package: {package_name}, action: {action}")
+        result = await manage_pypi_package_discussions(
+            package_name=package_name,
+            action=action,
+            discussion_settings=discussion_settings,
+            moderator_controls=moderator_controls,
+        )
+        logger.info(f"Successfully managed discussions for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error managing discussions for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error managing discussions for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "action": action,
+        }
+
+
+@mcp.tool()
+async def get_pypi_maintainer_contacts_tool(
+    package_name: str,
+    contact_types: list[str] | None = None,
+    include_social_profiles: bool = False,
+    include_contribution_guidelines: bool = True,
+    respect_privacy_settings: bool = True,
+) -> dict[str, Any]:
+    """Get contact information and communication channels for package maintainers.
+    
+    This tool retrieves publicly available contact information for package
+    maintainers while respecting privacy settings and providing appropriate
+    communication channels for different types of inquiries.
+    
+    Args:
+        package_name: Name of the package to get maintainer contacts for
+        contact_types: Types of contact info to retrieve ('email', 'github', 'social', 'support')
+        include_social_profiles: Whether to include social media profiles
+        include_contribution_guidelines: Whether to include contribution guidelines
+        respect_privacy_settings: Whether to respect maintainer privacy preferences
+        
+    Returns:
+        Dictionary containing maintainer contact information including:
+        - Publicly available contact methods
+        - Communication preferences and guidelines
+        - Support channels and community resources
+        - Privacy-respecting contact recommendations
+        - Contribution guidelines and community standards
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting maintainer contacts for package: {package_name}")
+        result = await get_pypi_maintainer_contacts(
+            package_name=package_name,
+            contact_types=contact_types,
+            include_social_profiles=include_social_profiles,
+            include_contribution_guidelines=include_contribution_guidelines,
+            respect_privacy_settings=respect_privacy_settings,
+        )
+        logger.info(f"Successfully retrieved maintainer contacts for package: {package_name}")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error getting maintainer contacts for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error getting maintainer contacts for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
         }
 
 
