@@ -1330,6 +1330,255 @@ async def manage_package_keywords_tool(
         }
 
 
+# PyPI Development Workflow Tools
+@mcp.tool()
+async def validate_package_name_pypi(package_name: str) -> dict[str, Any]:
+    """Check if a package name is available and valid on PyPI.
+    
+    This tool validates package name format according to PyPI standards and checks
+    availability on PyPI. It provides recommendations for improvement and suggests
+    alternatives if the name is already taken.
+    
+    Args:
+        package_name: Name to validate and check for availability
+        
+    Returns:
+        Dictionary containing validation results including:
+        - Format validation results and PyPI standards compliance
+        - Availability status on PyPI
+        - Recommendations for improvement
+        - Similar existing packages (if any)
+        
+    Raises:
+        InvalidPackageNameError: If package name format is severely invalid
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Validating package name: {package_name}")
+        from .tools.workflow import validate_pypi_package_name
+        result = await validate_pypi_package_name(package_name)
+        logger.info(f"Successfully validated package name: {package_name}")
+        return result
+    except (InvalidPackageNameError, NetworkError) as e:
+        logger.error(f"Error validating package name {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error validating package name {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def preview_package_page_pypi(
+    package_name: str,
+    version: str = "1.0.0",
+    summary: str = "",
+    description: str = "",
+    author: str = "",
+    license_name: str = "MIT",
+    home_page: str = "",
+    keywords: list[str] = None,
+    classifiers: list[str] = None,
+) -> dict[str, Any]:
+    """Generate a preview of how a package page would look on PyPI.
+    
+    This tool creates a preview of the PyPI package page based on the provided
+    metadata, helping developers visualize their package before upload and
+    optimize their package presentation.
+    
+    Args:
+        package_name: Name of the package
+        version: Package version (default: "1.0.0")
+        summary: Short package description
+        description: Long package description  
+        author: Package author name
+        license_name: License type (default: "MIT")
+        home_page: Project homepage URL
+        keywords: List of keywords for the package
+        classifiers: List of PyPI classifiers
+        
+    Returns:
+        Dictionary containing preview information including:
+        - Formatted package metadata and rendered page sections
+        - Validation warnings and SEO recommendations
+        - Completeness and discoverability scores
+        - Upload readiness assessment
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+    """
+    try:
+        logger.info(f"MCP tool: Generating preview for package: {package_name}")
+        from .tools.workflow import preview_pypi_package_page
+        result = await preview_pypi_package_page(
+            package_name=package_name,
+            version=version,
+            summary=summary,
+            description=description,
+            author=author,
+            license_name=license_name,
+            home_page=home_page,
+            keywords=keywords or [],
+            classifiers=classifiers or [],
+        )
+        logger.info(f"Successfully generated preview for package: {package_name}")
+        return result
+    except InvalidPackageNameError as e:
+        logger.error(f"Error generating preview for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error generating preview for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def check_package_upload_requirements(
+    package_name: str,
+    version: str = "1.0.0",
+    author: str = "",
+    author_email: str = "",
+    description: str = "",
+    long_description: str = "",
+    license_name: str = "",
+    home_page: str = "",
+    classifiers: list[str] = None,
+    requires_python: str = "",
+) -> dict[str, Any]:
+    """Check if package metadata meets PyPI upload requirements.
+    
+    This tool validates all required and recommended metadata fields for PyPI
+    package upload, following setup.py and setuptools standards. It provides
+    a comprehensive readiness assessment and actionable next steps.
+    
+    Args:
+        package_name: Name of the package
+        version: Package version (default: "1.0.0")
+        author: Package author name
+        author_email: Author email address
+        description: Short package description
+        long_description: Detailed package description
+        license_name: License identifier
+        home_page: Project homepage URL
+        classifiers: List of PyPI classifiers
+        requires_python: Python version requirements
+        
+    Returns:
+        Dictionary containing upload readiness assessment including:
+        - Required and recommended fields validation
+        - Compliance with PyPI standards and upload checklist
+        - Specific issues, warnings, and suggestions
+        - Actionable next steps for preparation
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+    """
+    try:
+        logger.info(f"MCP tool: Checking upload requirements for package: {package_name}")
+        from .tools.workflow import check_pypi_upload_requirements
+        result = await check_pypi_upload_requirements(
+            package_name=package_name,
+            version=version,
+            author=author,
+            author_email=author_email,
+            description=description,
+            long_description=long_description,
+            license_name=license_name,
+            home_page=home_page,
+            classifiers=classifiers or [],
+            requires_python=requires_python,
+        )
+        logger.info(f"Successfully checked upload requirements for package: {package_name}")
+        return result
+    except InvalidPackageNameError as e:
+        logger.error(f"Error checking upload requirements for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error checking upload requirements for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def get_package_build_logs(
+    package_name: str,
+    version: str | None = None,
+    platform: str = "all",
+    include_details: bool = True,
+) -> dict[str, Any]:
+    """Retrieve and analyze PyPI build logs and distribution information.
+    
+    This tool fetches information about package builds, wheel distributions,
+    and build-related warnings or errors from PyPI. It provides comprehensive
+    analysis of build quality and platform support.
+    
+    Args:
+        package_name: Name of the package to analyze
+        version: Specific version to check (optional, defaults to latest)
+        platform: Platform filter ("all", "windows", "macos", "linux")
+        include_details: Whether to include detailed file analysis
+        
+    Returns:
+        Dictionary containing build information including:
+        - Available distributions (wheels, source) and build status
+        - Platform support and Python version coverage
+        - File sizes, checksums, and build quality analysis
+        - Build warnings, recommendations, and health assessment
+        
+    Raises:
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing build logs for package: {package_name}")
+        from .tools.workflow import get_pypi_build_logs
+        result = await get_pypi_build_logs(
+            package_name=package_name,
+            version=version,
+            platform=platform,
+            include_details=include_details,
+        )
+        logger.info(f"Successfully analyzed build logs for package: {package_name}")
+        return result
+    except (PackageNotFoundError, NetworkError) as e:
+        logger.error(f"Error analyzing build logs for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "version": version,
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error analyzing build logs for {package_name}: {e}")
+        return {
+            "error": f"Unexpected error: {e}",
+            "error_type": "UnexpectedError",
+            "package_name": package_name,
+            "version": version,
+        }
+
+
 # Register prompt templates following standard MCP workflow:
 # 1. User calls tool → MCP client sends request
 # 2. Tool function executes → Collects necessary data and parameters

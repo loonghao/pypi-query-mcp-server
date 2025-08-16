@@ -53,6 +53,12 @@ from .analytics import (
     get_pypi_package_rankings,
     get_pypi_security_alerts,
 )
+from .workflow import (
+    check_pypi_upload_requirements,
+    get_pypi_build_logs,
+    preview_pypi_package_page,
+    validate_pypi_package_name,
+)
 
 __all__ = [
     "query_package_info",
@@ -88,4 +94,8 @@ __all__ = [
     "get_pypi_trending_today",
     "search_pypi_by_maintainer",
     "get_pypi_package_recommendations",
+    "validate_pypi_package_name",
+    "preview_pypi_package_page",
+    "check_pypi_upload_requirements",
+    "get_pypi_build_logs",
 ]
