@@ -9,7 +9,15 @@ from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlencode
 
 import httpx
-from feedparser import parse as parse_feed
+
+try:
+    from feedparser import parse as parse_feed
+    HAS_FEEDPARSER = True
+except ImportError:
+    HAS_FEEDPARSER = False
+    def parse_feed(url_or_content):
+        """Fallback when feedparser is not available."""
+        return {"entries": []}
 
 from ..core.exceptions import InvalidPackageNameError, NetworkError, SearchError
 from ..core.pypi_client import PyPIClient
@@ -577,6 +585,18 @@ async def _fetch_recent_releases_from_rss(hours: int) -> List[Dict[str, Any]]:
             response.raise_for_status()
             
         # Parse RSS feed
+        if not HAS_FEEDPARSER:
+            logger.warning("feedparser not available - RSS monitoring limited")
+            return {
+                "new_releases": [],
+                "time_period": f"last {hours} hours",
+                "note": "RSS parsing unavailable - feedparser dependency missing",
+                "fallback_used": True,
+                "total_found": 0,
+                "category": category,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
         feed = parse_feed(response.content)
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
         

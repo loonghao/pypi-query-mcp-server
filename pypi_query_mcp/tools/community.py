@@ -17,7 +17,7 @@ from ..core.exceptions import (
     PyPIError,
 )
 from ..core.pypi_client import PyPIClient
-from ..core.github_client import GitHubClient
+from ..core.github_client import GitHubAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -417,7 +417,7 @@ async def _analyze_github_community_sentiment(package_name: str) -> Dict[str, An
             return {"status": "no_github_repository"}
             
         # Use GitHub client to get community data
-        async with GitHubClient() as github_client:
+        async with GitHubAPIClient() as github_client:
             # Get recent issues for sentiment analysis
             issues_data = await github_client.get_repository_issues(
                 github_info["owner"], 
@@ -530,7 +530,7 @@ async def _get_community_health_metrics(package_name: str) -> Dict[str, Any]:
         github_info = await _find_github_repository(package_name)
         
         if github_info.get("repository_url"):
-            async with GitHubClient() as github_client:
+            async with GitHubAPIClient() as github_client:
                 # Get community health data
                 community_profile = await github_client.get_community_profile(
                     github_info["owner"], 
@@ -877,7 +877,7 @@ async def _analyze_github_maintainer_info(package_name: str) -> Dict[str, Any]:
         if not github_info.get("repository_url"):
             return {"status": "no_github_repository"}
             
-        async with GitHubClient() as github_client:
+        async with GitHubAPIClient() as github_client:
             # Get repository information
             repo_data = await github_client.get_repository_info(
                 github_info["owner"], 
@@ -921,7 +921,7 @@ async def _get_support_channels(package_name: str) -> Dict[str, Any]:
             support_channels["issue_tracker"] = f"{github_info['repository_url']}/issues"
             
             # Check for documentation links
-            async with GitHubClient() as github_client:
+            async with GitHubAPIClient() as github_client:
                 repo_data = await github_client.get_repository_info(
                     github_info["owner"], 
                     github_info["repo"]
@@ -977,7 +977,7 @@ async def _get_contribution_guidelines(package_name: str) -> Dict[str, Any]:
         if not github_info.get("repository_url"):
             return {"status": "no_repository"}
             
-        async with GitHubClient() as github_client:
+        async with GitHubAPIClient() as github_client:
             # Check for common contribution files
             contribution_files = await github_client.get_community_files(
                 github_info["owner"], 
