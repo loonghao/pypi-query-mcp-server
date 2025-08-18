@@ -1,6 +1,7 @@
 """FastMCP server for PyPI package queries."""
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import click
@@ -688,7 +689,12 @@ async def search_pypi_packages(
         SearchError: If search operation fails
     """
     try:
-        return await search_packages(
+        logger.info(f"MCP search_pypi_packages called with query='{query}', limit={limit}")
+        logger.info(f"MCP search_pypi_packages parameters: python_versions={python_versions}, licenses={licenses}, categories={categories}")
+        logger.info(f"MCP search_pypi_packages parameters: min_downloads={min_downloads}, maintenance_status={maintenance_status}, has_wheels={has_wheels}")
+        logger.info(f"MCP search_pypi_packages parameters: sort_by={sort_by}, sort_desc={sort_desc}, semantic_search={semantic_search}")
+        
+        result = await search_packages(
             query=query,
             limit=limit,
             python_versions=python_versions,
@@ -701,15 +707,36 @@ async def search_pypi_packages(
             sort_desc=sort_desc,
             semantic_search=semantic_search,
         )
-    except (InvalidPackageNameError, PackageNotFoundError, NetworkError):
-        raise
-    except Exception as e:
-        logger.error(f"Error searching packages for '{query}': {e}")
+        logger.info(f"MCP search_pypi_packages raw result keys: {list(result.keys())}")
+        logger.info(f"MCP search_pypi_packages raw result total_found: {result.get('total_found')}")
+        logger.info(f"MCP search_pypi_packages raw result packages count: {len(result.get('packages', []))}")
+        logger.info(f"MCP search_pypi_packages returning: {len(result.get('packages', []))} packages")
+        return result
+    except (InvalidPackageNameError, PackageNotFoundError, NetworkError, SearchError) as e:
+        logger.error(f"Known error searching packages for '{query}': {e}")
         return {
             "error": f"Search failed: {e}",
-            "error_type": "SearchError",
+            "error_type": type(e).__name__,
             "query": query,
             "limit": limit,
+            "packages": [],
+            "total_found": 0,
+            "returned_count": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error searching packages for '{query}': {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "error": f"Search failed: {e}",
+            "error_type": "SearchError", 
+            "query": query,
+            "limit": limit,
+            "packages": [],
+            "total_found": 0,
+            "returned_count": 0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
