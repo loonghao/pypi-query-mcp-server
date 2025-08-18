@@ -637,9 +637,9 @@ async def _categorize_package(package_info: Dict[str, Any]) -> List[str]:
     
     # Extract text for analysis
     text_data = " ".join([
-        package_info.get("summary", ""),
-        package_info.get("description", ""),
-        package_info.get("keywords", ""),
+        package_info.get("summary") or "",
+        package_info.get("description") or "",
+        package_info.get("keywords") or "",
     ]).lower()
     
     # Classifier-based categorization
@@ -916,7 +916,7 @@ async def _find_similar_packages(base_info: Dict[str, Any], limit: int) -> List[
     similar_packages = []
     
     # Use keywords and categories for similarity
-    keywords = base_info.get("keywords", "").split()
+    keywords = (base_info.get("keywords") or "").split()
     summary = base_info.get("summary", "")
     
     if keywords or summary:
