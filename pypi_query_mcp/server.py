@@ -38,6 +38,37 @@ from .tools import (
     resolve_package_dependencies,
     search_by_category,
     search_packages,
+    # Publishing tools
+    upload_package_to_pypi,
+    check_pypi_credentials,
+    get_pypi_upload_history,
+    delete_pypi_release,
+    manage_pypi_maintainers,
+    get_pypi_account_info,
+    # Metadata tools
+    update_package_metadata,
+    manage_package_urls,
+    set_package_visibility,
+    manage_package_keywords,
+    # Analytics tools
+    get_pypi_package_analytics,
+    get_pypi_security_alerts,
+    get_pypi_package_rankings,
+    analyze_pypi_competition,
+    # Discovery tools
+    monitor_pypi_new_releases,
+    get_pypi_trending_today,
+    search_pypi_by_maintainer,
+    get_pypi_package_recommendations,
+    # Workflow tools
+    validate_pypi_package_name,
+    preview_pypi_package_page,
+    check_pypi_upload_requirements,
+    get_pypi_build_logs,
+    # Community tools
+    get_pypi_package_reviews,
+    manage_pypi_package_discussions,
+    get_pypi_maintainer_contacts,
 )
 
 # Configure logging
@@ -803,6 +834,1071 @@ async def get_trending_pypi_packages(
             "category": category,
             "time_period": time_period,
             "limit": limit,
+        }
+
+
+# Publishing Tools MCP Endpoints
+
+@mcp.tool()
+async def upload_package_to_pypi_tool(
+    distribution_paths: list[str],
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    skip_existing: bool = True,
+    verify_uploads: bool = True,
+) -> dict[str, Any]:
+    """Upload package distributions to PyPI or TestPyPI.
+    
+    This tool uploads Python package distribution files (.whl, .tar.gz) to PyPI
+    or TestPyPI, providing comprehensive upload management and verification.
+    
+    Args:
+        distribution_paths: List of paths to distribution files (.whl, .tar.gz)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to upload to TestPyPI instead of production PyPI
+        skip_existing: Skip files that already exist on PyPI
+        verify_uploads: Verify uploads after completion
+        
+    Returns:
+        Dictionary containing upload results, statistics, and verification info
+        
+    Raises:
+        PyPIAuthenticationError: If authentication fails
+        PyPIUploadError: If upload operations fail
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Uploading {len(distribution_paths)} distributions to {'TestPyPI' if test_pypi else 'PyPI'}")
+        result = await upload_package_to_pypi(
+            distribution_paths=distribution_paths,
+            api_token=api_token,
+            test_pypi=test_pypi,
+            skip_existing=skip_existing,
+            verify_uploads=verify_uploads,
+        )
+        logger.info(f"Upload completed with {result.get('successful_uploads', 0)} successful uploads")
+        return result
+    except Exception as e:
+        logger.error(f"Error uploading package: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "distribution_paths": distribution_paths,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def check_pypi_credentials_tool(
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Validate PyPI API token and credentials.
+    
+    This tool validates PyPI API tokens and checks authentication status,
+    helping ensure proper credentials before performing upload operations.
+    
+    Args:
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to check against TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing credential validation results and status
+        
+    Raises:
+        PyPIAuthenticationError: If credential validation fails
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Checking {'TestPyPI' if test_pypi else 'PyPI'} credentials")
+        result = await check_pypi_credentials(api_token, test_pypi)
+        logger.info(f"Credential check completed: {'valid' if result.get('valid') else 'invalid'}")
+        return result
+    except Exception as e:
+        logger.error(f"Error checking credentials: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def get_pypi_upload_history_tool(
+    package_name: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Get upload history for a PyPI package.
+    
+    This tool retrieves comprehensive upload history for a package,
+    including file information, upload times, and statistics.
+    
+    Args:
+        package_name: Name of the package to get upload history for
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to check TestPyPI instead of production PyPI
+        limit: Maximum number of uploads to return
+        
+    Returns:
+        Dictionary containing upload history and metadata
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting upload history for {package_name}")
+        result = await get_pypi_upload_history(package_name, api_token, test_pypi, limit)
+        logger.info(f"Retrieved {len(result.get('upload_history', []))} upload records")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting upload history for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def delete_pypi_release_tool(
+    package_name: str,
+    version: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    confirm_deletion: bool = False,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """Delete a specific release from PyPI (with safety checks).
+    
+    This tool provides safe deletion of PyPI releases with comprehensive
+    safety checks and dry-run capability. PyPI deletion is very restricted.
+    
+    Args:
+        package_name: Name of the package
+        version: Version to delete
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        confirm_deletion: Explicit confirmation required for actual deletion
+        dry_run: If True, only simulate the deletion without actually performing it
+        
+    Returns:
+        Dictionary containing deletion results and safety information
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package/version is not found
+        PyPIPermissionError: If deletion is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: {'DRY RUN: ' if dry_run else ''}Deleting {package_name}=={version}")
+        result = await delete_pypi_release(
+            package_name, version, api_token, test_pypi, confirm_deletion, dry_run
+        )
+        logger.info(f"Deletion {'simulation' if dry_run else 'attempt'} completed")
+        return result
+    except Exception as e:
+        logger.error(f"Error deleting release {package_name}=={version}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "version": version,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def manage_pypi_maintainers_tool(
+    package_name: str,
+    action: str,
+    username: str | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Manage package maintainers (add/remove/list).
+    
+    This tool provides maintainer management functionality for PyPI packages,
+    including listing current maintainers and guidance for adding/removing.
+    
+    Args:
+        package_name: Name of the package
+        action: Action to perform ('list', 'add', 'remove')
+        username: Username to add/remove (required for add/remove actions)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing maintainer management results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing maintainers for {package_name}: {action}")
+        result = await manage_pypi_maintainers(package_name, action, username, api_token, test_pypi)
+        logger.info(f"Maintainer management completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing maintainers for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def get_pypi_account_info_tool(
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Get PyPI account information, quotas, and limits.
+    
+    This tool retrieves comprehensive account information including
+    limitations, features, and useful links for PyPI account management.
+    
+    Args:
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing account information and limitations
+        
+    Raises:
+        PyPIAuthenticationError: If authentication fails
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting account information for {'TestPyPI' if test_pypi else 'PyPI'}")
+        result = await get_pypi_account_info(api_token, test_pypi)
+        logger.info("Account information retrieved successfully")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting account information: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "test_pypi": test_pypi,
+        }
+
+
+# Metadata Management Tools MCP Endpoints
+
+@mcp.tool()
+async def update_package_metadata_tool(
+    package_name: str,
+    metadata_updates: dict[str, Any],
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    validate_changes: bool = True,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Update PyPI package metadata and configuration.
+    
+    This tool updates package metadata including description, keywords,
+    classifiers, and other package information on PyPI.
+    
+    Args:
+        package_name: Name of the package to update
+        metadata_updates: Dictionary of metadata fields to update
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        validate_changes: Whether to validate metadata before applying
+        dry_run: If True, only validate without applying changes
+        
+    Returns:
+        Dictionary containing update results and validation info
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If update is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Updating metadata for {package_name}")
+        result = await update_package_metadata(
+            package_name, metadata_updates, api_token, test_pypi, validate_changes, dry_run
+        )
+        logger.info(f"Metadata update {'simulated' if dry_run else 'completed'} for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error updating metadata for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def manage_package_urls_tool(
+    package_name: str,
+    action: str,
+    url_type: str | None = None,
+    url_value: str | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Manage package URLs (homepage, documentation, repository, etc.).
+    
+    This tool manages package URL configurations including adding, updating,
+    removing, and listing various URL types for a PyPI package.
+    
+    Args:
+        package_name: Name of the package
+        action: Action to perform ('list', 'add', 'update', 'remove')
+        url_type: Type of URL ('homepage', 'documentation', 'repository', 'bug_tracker', etc.)
+        url_value: URL value (required for add/update actions)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing URL management results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing URLs for {package_name}: {action}")
+        result = await manage_package_urls(
+            package_name, action, url_type, url_value, api_token, test_pypi
+        )
+        logger.info(f"URL management completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing URLs for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def set_package_visibility_tool(
+    package_name: str,
+    visibility: str,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+    confirmation_required: bool = True,
+) -> dict[str, Any]:
+    """Set package visibility and access controls.
+    
+    This tool manages package visibility settings including public/private
+    status and access controls for PyPI packages.
+    
+    Args:
+        package_name: Name of the package
+        visibility: Visibility setting ('public', 'private', 'unlisted')
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        confirmation_required: Whether to require explicit confirmation
+        
+    Returns:
+        Dictionary containing visibility change results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Setting visibility for {package_name} to {visibility}")
+        result = await set_package_visibility(
+            package_name, visibility, api_token, test_pypi, confirmation_required
+        )
+        logger.info(f"Visibility update completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error setting visibility for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "visibility": visibility,
+            "test_pypi": test_pypi,
+        }
+
+
+@mcp.tool()
+async def manage_package_keywords_tool(
+    package_name: str,
+    action: str,
+    keywords: list[str] | None = None,
+    api_token: str | None = None,
+    test_pypi: bool = False,
+) -> dict[str, Any]:
+    """Manage package keywords and tags.
+    
+    This tool manages package keywords and tags for better discoverability,
+    including adding, removing, and updating keyword sets.
+    
+    Args:
+        package_name: Name of the package
+        action: Action to perform ('list', 'add', 'remove', 'replace')
+        keywords: List of keywords (required for add/remove/replace actions)
+        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        test_pypi: Whether to use TestPyPI instead of production PyPI
+        
+    Returns:
+        Dictionary containing keyword management results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing keywords for {package_name}: {action}")
+        result = await manage_package_keywords(
+            package_name, action, keywords, api_token, test_pypi
+        )
+        logger.info(f"Keyword management completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing keywords for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+            "test_pypi": test_pypi,
+        }
+
+
+# Analytics Tools MCP Endpoints
+
+@mcp.tool()
+async def get_pypi_package_analytics_tool(
+    package_name: str,
+    time_period: str = "month",
+    include_historical: bool = True,
+    analytics_scope: str = "comprehensive",
+) -> dict[str, Any]:
+    """Get comprehensive analytics for a PyPI package.
+    
+    This tool provides detailed analytics including download statistics,
+    version distribution, platform analytics, and quality metrics.
+    
+    Args:
+        package_name: Name of the package to analyze
+        time_period: Time period for analytics ('day', 'week', 'month', 'year')
+        include_historical: Whether to include historical trend data
+        analytics_scope: Scope of analytics ('basic', 'comprehensive', 'detailed')
+        
+    Returns:
+        Dictionary containing comprehensive package analytics
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting analytics for {package_name}")
+        result = await get_pypi_package_analytics(
+            package_name, time_period, include_historical, analytics_scope
+        )
+        logger.info(f"Analytics retrieved for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting analytics for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "time_period": time_period,
+        }
+
+
+@mcp.tool()
+async def get_pypi_security_alerts_tool(
+    package_name: str,
+    include_dependencies: bool = True,
+    severity_filter: str | None = None,
+    alert_sources: list[str] | None = None,
+) -> dict[str, Any]:
+    """Get security alerts and vulnerability information for a package.
+    
+    This tool provides comprehensive security analysis including known
+    vulnerabilities, security advisories, and dependency risk assessment.
+    
+    Args:
+        package_name: Name of the package to analyze
+        include_dependencies: Whether to include dependency vulnerabilities
+        severity_filter: Filter by severity ('low', 'medium', 'high', 'critical')
+        alert_sources: List of alert sources to check
+        
+    Returns:
+        Dictionary containing security alerts and analysis
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting security alerts for {package_name}")
+        result = await get_pypi_security_alerts(
+            package_name, include_dependencies, severity_filter, alert_sources
+        )
+        logger.info(f"Security analysis completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting security alerts for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def get_pypi_package_rankings_tool(
+    package_name: str,
+    ranking_metrics: list[str] | None = None,
+    search_terms: list[str] | None = None,
+    include_competitors: bool = True,
+) -> dict[str, Any]:
+    """Get package ranking and discoverability analysis.
+    
+    This tool analyzes package rankings in search results, popularity
+    metrics, and competitive positioning within the Python ecosystem.
+    
+    Args:
+        package_name: Name of the package to analyze
+        ranking_metrics: List of metrics to analyze ('downloads', 'stars', 'search_rank')
+        search_terms: Search terms to check rankings for
+        include_competitors: Whether to include competitor analysis
+        
+    Returns:
+        Dictionary containing ranking analysis and insights
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting rankings for {package_name}")
+        result = await get_pypi_package_rankings(
+            package_name, ranking_metrics, search_terms, include_competitors
+        )
+        logger.info(f"Ranking analysis completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting rankings for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def analyze_pypi_competition_tool(
+    package_name: str,
+    analysis_depth: str = "comprehensive",
+    competitor_limit: int = 5,
+    include_market_analysis: bool = True,
+) -> dict[str, Any]:
+    """Analyze competitive landscape for a PyPI package.
+    
+    This tool provides comprehensive competitive analysis including
+    competitor identification, feature comparison, and market positioning.
+    
+    Args:
+        package_name: Name of the package to analyze
+        analysis_depth: Depth of analysis ('basic', 'comprehensive', 'detailed')
+        competitor_limit: Maximum number of competitors to analyze
+        include_market_analysis: Whether to include market share analysis
+        
+    Returns:
+        Dictionary containing competitive analysis and insights
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing competition for {package_name}")
+        result = await analyze_pypi_competition(
+            package_name, analysis_depth, competitor_limit, include_market_analysis
+        )
+        logger.info(f"Competition analysis completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing competition for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+# Discovery Tools MCP Endpoints
+
+@mcp.tool()
+async def monitor_pypi_new_releases_tool(
+    time_window: str = "24h",
+    category_filter: str | None = None,
+    min_downloads: int | None = None,
+    include_prereleases: bool = False,
+) -> dict[str, Any]:
+    """Monitor recent PyPI package releases and updates.
+    
+    This tool tracks new packages and version releases on PyPI,
+    providing insights into the latest developments in the Python ecosystem.
+    
+    Args:
+        time_window: Time window to monitor ('1h', '6h', '24h', '7d')
+        category_filter: Filter by package category
+        min_downloads: Minimum download threshold for inclusion
+        include_prereleases: Whether to include pre-release versions
+        
+    Returns:
+        Dictionary containing recent releases and analysis
+        
+    Raises:
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Monitoring new releases (window: {time_window})")
+        result = await monitor_pypi_new_releases(
+            time_window, category_filter, min_downloads, include_prereleases
+        )
+        logger.info(f"Found {len(result.get('new_releases', []))} new releases")
+        return result
+    except Exception as e:
+        logger.error(f"Error monitoring new releases: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "time_window": time_window,
+        }
+
+
+@mcp.tool()
+async def get_pypi_trending_today_tool(
+    category: str | None = None,
+    limit: int = 20,
+    trending_metric: str = "downloads",
+) -> dict[str, Any]:
+    """Get trending PyPI packages for today.
+    
+    This tool identifies packages that are trending today based on
+    various metrics like download spikes, new releases, or community activity.
+    
+    Args:
+        category: Filter by package category
+        limit: Maximum number of trending packages to return
+        trending_metric: Metric to base trending on ('downloads', 'stars', 'releases')
+        
+    Returns:
+        Dictionary containing trending packages and analysis
+        
+    Raises:
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting trending packages for today")
+        result = await get_pypi_trending_today(category, limit, trending_metric)
+        logger.info(f"Found {len(result.get('trending_packages', []))} trending packages")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting trending packages: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "category": category,
+        }
+
+
+@mcp.tool()
+async def search_pypi_by_maintainer_tool(
+    maintainer_name: str,
+    search_scope: str = "all",
+    include_statistics: bool = True,
+    sort_by: str = "popularity",
+) -> dict[str, Any]:
+    """Search PyPI packages by maintainer or author.
+    
+    This tool finds all packages maintained by a specific person or organization,
+    providing insights into their contribution to the Python ecosystem.
+    
+    Args:
+        maintainer_name: Name of the maintainer to search for
+        search_scope: Scope of search ('author', 'maintainer', 'all')
+        include_statistics: Whether to include maintainer statistics
+        sort_by: Sort packages by ('popularity', 'recency', 'name')
+        
+    Returns:
+        Dictionary containing maintainer packages and statistics
+        
+    Raises:
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Searching packages by maintainer: {maintainer_name}")
+        result = await search_pypi_by_maintainer(
+            maintainer_name, search_scope, include_statistics, sort_by
+        )
+        logger.info(f"Found {len(result.get('packages', []))} packages")
+        return result
+    except Exception as e:
+        logger.error(f"Error searching by maintainer {maintainer_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "maintainer_name": maintainer_name,
+        }
+
+
+@mcp.tool()
+async def get_pypi_package_recommendations_tool(
+    package_name: str,
+    recommendation_type: str = "similar",
+    limit: int = 10,
+    include_reasoning: bool = True,
+) -> dict[str, Any]:
+    """Get personalized package recommendations based on a given package.
+    
+    This tool provides intelligent package recommendations including
+    similar packages, complementary tools, and upgrade suggestions.
+    
+    Args:
+        package_name: Base package for recommendations
+        recommendation_type: Type of recommendations ('similar', 'complementary', 'upgrades')
+        limit: Maximum number of recommendations to return
+        include_reasoning: Whether to include reasoning for recommendations
+        
+    Returns:
+        Dictionary containing package recommendations and analysis
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting recommendations for {package_name}")
+        result = await get_pypi_package_recommendations(
+            package_name, recommendation_type, limit, include_reasoning
+        )
+        logger.info(f"Generated {len(result.get('recommendations', []))} recommendations")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting recommendations for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+# Workflow Tools MCP Endpoints
+
+@mcp.tool()
+async def validate_pypi_package_name_tool(package_name: str) -> dict[str, Any]:
+    """Validate PyPI package name according to PEP 508 and PyPI requirements.
+    
+    This tool validates package names against PyPI naming conventions,
+    checks availability, and provides suggestions for improvements.
+    
+    Args:
+        package_name: Package name to validate
+        
+    Returns:
+        Dictionary containing validation results and suggestions
+        
+    Raises:
+        InvalidPackageNameError: If package name format is invalid
+    """
+    try:
+        logger.info(f"MCP tool: Validating package name: {package_name}")
+        result = await validate_pypi_package_name(package_name)
+        logger.info(f"Package name validation completed: {'valid' if result.get('valid') else 'invalid'}")
+        return result
+    except Exception as e:
+        logger.error(f"Error validating package name {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def preview_pypi_package_page_tool(
+    package_name: str,
+    version: str | None = None,
+    include_rendered_content: bool = True,
+    check_metadata_completeness: bool = True,
+) -> dict[str, Any]:
+    """Preview how a package page will look on PyPI.
+    
+    This tool generates a preview of the PyPI package page including
+    rendered README, metadata display, and completeness analysis.
+    
+    Args:
+        package_name: Name of the package to preview
+        version: Specific version to preview (optional, defaults to latest)
+        include_rendered_content: Whether to include rendered README content
+        check_metadata_completeness: Whether to analyze metadata completeness
+        
+    Returns:
+        Dictionary containing page preview and analysis
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Previewing package page for {package_name}")
+        result = await preview_pypi_package_page(
+            package_name, version, include_rendered_content, check_metadata_completeness
+        )
+        logger.info(f"Package page preview generated for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error previewing package page for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def check_pypi_upload_requirements_tool(
+    package_path: str,
+    check_completeness: bool = True,
+    validate_metadata: bool = True,
+    check_security: bool = True,
+) -> dict[str, Any]:
+    """Check if a package meets PyPI upload requirements.
+    
+    This tool validates package structure, metadata, and requirements
+    before upload to ensure successful PyPI submission.
+    
+    Args:
+        package_path: Path to the package directory or distribution file
+        check_completeness: Whether to check metadata completeness
+        validate_metadata: Whether to validate metadata format
+        check_security: Whether to perform security checks
+        
+    Returns:
+        Dictionary containing requirement check results and recommendations
+        
+    Raises:
+        FileNotFoundError: If package path doesn't exist
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Checking upload requirements for {package_path}")
+        result = await check_pypi_upload_requirements(
+            package_path, check_completeness, validate_metadata, check_security
+        )
+        logger.info(f"Upload requirements check completed")
+        return result
+    except Exception as e:
+        logger.error(f"Error checking upload requirements for {package_path}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_path": package_path,
+        }
+
+
+@mcp.tool()
+async def get_pypi_build_logs_tool(
+    package_name: str,
+    version: str | None = None,
+    build_type: str = "all",
+    include_analysis: bool = True,
+) -> dict[str, Any]:
+    """Get PyPI package build logs and analysis.
+    
+    This tool retrieves build logs for PyPI packages and provides
+    analysis of build issues, warnings, and optimization opportunities.
+    
+    Args:
+        package_name: Name of the package
+        version: Specific version (optional, defaults to latest)
+        build_type: Type of builds to include ('wheel', 'sdist', 'all')
+        include_analysis: Whether to include build analysis
+        
+    Returns:
+        Dictionary containing build logs and analysis
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting build logs for {package_name}")
+        result = await get_pypi_build_logs(package_name, version, build_type, include_analysis)
+        logger.info(f"Build logs retrieved for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting build logs for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+# Community Tools MCP Endpoints
+
+@mcp.tool()
+async def get_pypi_package_reviews_tool(
+    package_name: str,
+    include_sentiment_analysis: bool = True,
+    review_sources: list[str] | None = None,
+    time_period: str = "all",
+) -> dict[str, Any]:
+    """Get community reviews and ratings for a PyPI package.
+    
+    This tool aggregates community feedback, reviews, and sentiment
+    analysis from various sources to provide comprehensive package insights.
+    
+    Args:
+        package_name: Name of the package to get reviews for
+        include_sentiment_analysis: Whether to include sentiment analysis
+        review_sources: List of sources to check ('github', 'stackoverflow', 'reddit')
+        time_period: Time period for reviews ('week', 'month', 'year', 'all')
+        
+    Returns:
+        Dictionary containing reviews, ratings, and sentiment analysis
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting reviews for {package_name}")
+        result = await get_pypi_package_reviews(
+            package_name, include_sentiment_analysis, review_sources, time_period
+        )
+        logger.info(f"Reviews retrieved for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting reviews for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def manage_pypi_package_discussions_tool(
+    package_name: str,
+    action: str,
+    discussion_settings: dict[str, Any] | None = None,
+    moderator_controls: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Manage package discussions and community features.
+    
+    This tool manages community discussion features for PyPI packages
+    including enabling discussions, moderation, and configuration.
+    
+    Args:
+        package_name: Name of the package
+        action: Action to perform ('status', 'enable', 'disable', 'configure', 'moderate')
+        discussion_settings: Settings for discussion configuration
+        moderator_controls: Moderation controls and settings
+        
+    Returns:
+        Dictionary containing discussion management results
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        PyPIPermissionError: If action is not permitted
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Managing discussions for {package_name}: {action}")
+        result = await manage_pypi_package_discussions(
+            package_name, action, discussion_settings, moderator_controls
+        )
+        logger.info(f"Discussion management completed for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error managing discussions for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
+            "action": action,
+        }
+
+
+@mcp.tool()
+async def get_pypi_maintainer_contacts_tool(
+    package_name: str,
+    contact_types: list[str] | None = None,
+    include_social_profiles: bool = False,
+    respect_privacy: bool = True,
+) -> dict[str, Any]:
+    """Get maintainer contact information and communication channels.
+    
+    This tool finds maintainer contact information and preferred
+    communication channels while respecting privacy preferences.
+    
+    Args:
+        package_name: Name of the package
+        contact_types: Types of contacts to find ('email', 'github', 'twitter')
+        include_social_profiles: Whether to include social media profiles
+        respect_privacy: Whether to respect privacy settings and preferences
+        
+    Returns:
+        Dictionary containing maintainer contact information
+        
+    Raises:
+        InvalidPackageNameError: If package name is invalid
+        PackageNotFoundError: If package is not found
+        NetworkError: For network-related errors
+    """
+    try:
+        logger.info(f"MCP tool: Getting maintainer contacts for {package_name}")
+        result = await get_pypi_maintainer_contacts(
+            package_name, contact_types, include_social_profiles, respect_privacy
+        )
+        logger.info(f"Maintainer contacts retrieved for {package_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting maintainer contacts for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_name": package_name,
         }
 
 
