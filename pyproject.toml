@@ -3,18 +3,18 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "pypi-query-mcp-server"
-version = "0.6.5"
-description = "A Model Context Protocol (MCP) server for querying PyPI package information, dependencies, and compatibility"
+name = "mcpypi"
+version = "1.0.0"
+description = "🎤 mcpypi - Your Master of Ceremonies for PyPI! The ultimate PyPI package intelligence platform through Model Context Protocol (MCP)"
 authors = ["Hal <hal.long@outlook.com>"]
 readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/loonghao/pypi-query-mcp-server"
 repository = "https://github.com/loonghao/pypi-query-mcp-server"
 documentation = "https://github.com/loonghao/pypi-query-mcp-server"
-keywords = ["mcp", "pypi", "package", "dependency", "python"]
+keywords = ["mcp", "pypi", "package", "dependency", "python", "security", "license", "analysis", "intelligence", "claude"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -24,6 +24,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Software Distribution",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+    "Framework :: AsyncIO",
 ]
 packages = [{include = "pypi_query_mcp"}]
 
@@ -48,7 +51,7 @@ nox = "^2025.0.0"
 commitizen = "^3.0.0"
 
 [tool.poetry.scripts]
-pypi-query-mcp-server = "pypi_query_mcp.server:main"
+mcpypi = "pypi_query_mcp.server:main"
 pypi-query-mcp = "pypi_query_mcp.server:main"
 
 [tool.ruff]
