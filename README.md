@@ -156,10 +156,10 @@ If you're using [Claude Code](https://claude.ai/code), you can connect to this M
 
 ```bash
 # Connect to the PyPI Query MCP server
-claude mcp add pypi-query uvx --from pypi-query-mcp-server pypi-query-mcp
+claude mcp add pypi-query -- uvx --from pypi-query-mcp-server pypi-query-mcp
 
 # Or with custom environment variables
-claude mcp add pypi-query uvx --from pypi-query-mcp-server pypi-query-mcp \
+claude mcp add pypi-query -- uvx --from pypi-query-mcp-server pypi-query-mcp \
   --env PYPI_INDEX_URL=https://pypi.org/pypi \
   --env PYPI_CACHE_TTL=3600 \
   --env PYPI_LOG_LEVEL=INFO
