@@ -1,6 +1,6 @@
 # PyPI Query MCP Server
 
-[![PyPI version](https://img.shields.io/pypi/v/pypi-query-mcp-server.svg)](https://pypi.org/project/pypi-query-mcp-server/)
+[![PyPI version](https://img.shields.io/pypi/v/mcpypi.svg)](https://pypi.org/project/mcpypi/)
 
 A Model Context Protocol (MCP) server for querying PyPI package information, dependencies, and compatibility checking.
 
@@ -23,17 +23,17 @@ A Model Context Protocol (MCP) server for querying PyPI package information, dep
 
 ```bash
 # Run directly with uvx
-uvx pypi-query-mcp-server
+uvx mcpypi
 
 # Or install and run with specific script
-uvx --from pypi-query-mcp-server pypi-query-mcp
+uvx --from mcpypi mcpypi
 ```
 
 ### Using pip
 
 ```bash
 # Install from PyPI
-pip install pypi-query-mcp-server
+pip install mcpypi
 
 # Run the server
 python -m pypi_query_mcp.server
@@ -62,7 +62,7 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "pypi-query": {
       "command": "uvx",
-      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "args": ["--from", "mcpypi", "mcpypi"],
       "env": {
         "PYPI_INDEX_URL": "https://pypi.org/pypi",
         "PYPI_INDEX_URLS": "https://mirrors.aliyun.com/pypi/simple/,https://pypi.tuna.tsinghua.edu.cn/simple/",
@@ -80,7 +80,7 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "pypi-query": {
       "command": "uvx",
-      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "args": ["--from", "mcpypi", "mcpypi"],
       "env": {
         "PYPI_INDEX_URL": "https://pypi.org/pypi",
         "PYPI_PRIVATE_PYPI_URL": "https://private.pypi.company.com",
@@ -102,7 +102,7 @@ Add to your Cline MCP settings (`cline_mcp_settings.json`):
   "mcpServers": {
     "pypi-query": {
       "command": "uvx",
-      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "args": ["--from", "mcpypi", "mcpypi"],
       "env": {
         "PYPI_INDEX_URL": "https://pypi.org/simple/",
         "CACHE_TTL": "3600"
@@ -121,7 +121,7 @@ Add to your Cursor MCP configuration (`.cursor/mcp.json`):
   "mcpServers": {
     "pypi-query": {
       "command": "uvx",
-      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "args": ["--from", "mcpypi", "mcpypi"],
       "env": {
         "PYPI_INDEX_URL": "https://pypi.org/simple/",
         "CACHE_TTL": "3600"
@@ -140,7 +140,7 @@ Add to your Windsurf MCP configuration (`~/.codeium/windsurf/mcp_config.json`):
   "mcpServers": {
     "pypi-query": {
       "command": "uvx",
-      "args": ["--from", "pypi-query-mcp-server", "pypi-query-mcp"],
+      "args": ["--from", "mcpypi", "mcpypi"],
       "env": {
         "PYPI_INDEX_URL": "https://pypi.org/simple/",
         "CACHE_TTL": "3600"
@@ -156,10 +156,10 @@ If you're using [Claude Code](https://claude.ai/code), you can connect to this M
 
 ```bash
 # Connect to the PyPI Query MCP server
-claude mcp add pypi-query -- uvx --from pypi-query-mcp-server pypi-query-mcp
+claude mcp add mcpypi -- uvx mcpypi
 
 # Or with custom environment variables
-claude mcp add pypi-query -- uvx --from pypi-query-mcp-server pypi-query-mcp \
+claude mcp add mcpypi -- uvx mcpypi \
   --env PYPI_INDEX_URL=https://pypi.org/pypi \
   --env PYPI_CACHE_TTL=3600 \
   --env PYPI_LOG_LEVEL=INFO
@@ -168,7 +168,7 @@ claude mcp add pypi-query -- uvx --from pypi-query-mcp-server pypi-query-mcp \
 claude mcp list
 
 # Remove the server if needed
-claude mcp remove pypi-query
+claude mcp remove mcpypi
 ```
 
 Once connected, you can use all the MCP tools directly in Claude Code sessions by asking questions like:
