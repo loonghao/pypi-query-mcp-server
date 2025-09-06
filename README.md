@@ -1,23 +1,35 @@
-# PyPI Query MCP Server
+# mcpypi 🥧
 
 [![PyPI version](https://img.shields.io/pypi/v/mcpypi.svg)](https://pypi.org/project/mcpypi/)
 
-A Model Context Protocol (MCP) server for querying PyPI package information, dependencies, and compatibility checking.
+**mcpypi** (pronounced "MC-py-pie") is your **Master of Ceremonies** for PyPI! 🎤
+
+Just like a DJ or MC controls the music and keeps the party flowing, mcpypi orchestrates your Python package management through the Model Context Protocol (MCP). It's a playful blend of "MCP" + "PyPI" + the Python community's beloved tradition of naming everything with "pie" 🥧 (like NumPy, SciPy, etc.).
+
+Think of mcpypi as your intelligent package DJ - it knows all the tracks (packages), their dependencies, security vulnerabilities, licenses, and can help you mix the perfect environment for your Python projects!
 
 ## Features
 
-- 📦 Query PyPI package information (name, version, description, dependencies)
-- 🐍 Python version compatibility checking
-- 🔍 **Advanced dependency analysis and recursive resolution**
-- 📥 **Package download with dependency collection**
-- 📊 **Download statistics and popularity analysis**
-- 🏆 **Top packages ranking and trends**
-- 🎯 **MCP prompt templates for guided analysis and decision-making**
-- 🏢 Private PyPI repository support
-- ⚡ Fast async operations with caching
-- 🛠️ Easy integration with MCP clients
+Your MC knows how to drop the beats! 🎵
+
+- 📦 **Track Info** - Get the full story on any PyPI package (metadata, versions, dependencies)
+- 🐍 **Compatibility Check** - Know which Python versions can handle your tracks
+- 🔍 **Deep Mixing** - Advanced dependency analysis and recursive resolution to avoid conflicts
+- 📥 **Collection Building** - Download packages with all their dependencies for offline mixing
+- 📊 **Chart Analysis** - Real-time download statistics and popularity trends 
+- 🏆 **Top 40** - Discover the hottest packages trending right now
+- 🔒 **Security Scanning** - Keep your playlist safe from vulnerable packages
+- 📄 **License Mixing** - Ensure your package mix is legally compatible
+- 🏥 **Health Check** - Assess package quality across 7 key metrics
+- 📋 **Setlist Analysis** - Parse and analyze requirements files in any format
+- 🎯 **Smart Prompts** - MCP templates for guided decision-making
+- 🏢 **Private Venues** - Support for private PyPI repositories  
+- ⚡ **Live Performance** - Fast async operations with intelligent caching
+- 🛠️ **Universal Mixer** - Easy integration with all MCP clients
 
 ## Installation
+
+Ready to get your MC on the decks? Here's how to book mcpypi for your next Python party! 🎉
 
 ### Using uvx (recommended)
 
