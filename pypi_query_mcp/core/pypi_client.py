@@ -164,12 +164,13 @@ class PyPIClient:
         raise last_exception
 
     async def get_package_info(
-        self, package_name: str, use_cache: bool = True
+        self, package_name: str, version: str | None = None, use_cache: bool = True
     ) -> dict[str, Any]:
         """Get comprehensive package information from PyPI.
 
         Args:
             package_name: Name of the package to query
+            version: Specific version to query (optional, defaults to latest)
             use_cache: Whether to use cached data if available
 
         Returns:
@@ -177,22 +178,33 @@ class PyPIClient:
 
         Raises:
             InvalidPackageNameError: If package name is invalid
-            PackageNotFoundError: If package is not found
+            PackageNotFoundError: If package is not found or version doesn't exist
             NetworkError: For network-related errors
         """
         normalized_name = self._validate_package_name(package_name)
-        cache_key = self._get_cache_key(normalized_name, "info")
+
+        # Create cache key that includes version info
+        cache_suffix = f"v{version}" if version else "latest"
+        cache_key = self._get_cache_key(normalized_name, f"info_{cache_suffix}")
 
         # Check cache first
         if use_cache and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if self._is_cache_valid(cache_entry):
-                logger.debug(f"Using cached data for package: {normalized_name}")
+                logger.debug(
+                    f"Using cached data for package: {normalized_name} version: {version or 'latest'}"
+                )
                 return cache_entry["data"]
 
-        # Make API request
-        url = f"{self.base_url}/{quote(normalized_name)}/json"
-        logger.info(f"Fetching package info for: {normalized_name}")
+        # Build URL - include version if specified
+        if version:
+            url = f"{self.base_url}/{quote(normalized_name)}/{quote(version)}/json"
+            logger.info(
+                f"Fetching package info for: {normalized_name} version {version}"
+            )
+        else:
+            url = f"{self.base_url}/{quote(normalized_name)}/json"
+            logger.info(f"Fetching package info for: {normalized_name} (latest)")
 
         try:
             data = await self._make_request(url)
@@ -204,8 +216,22 @@ class PyPIClient:
 
             return data
 
+        except PackageNotFoundError as e:
+            if version:
+                # More specific error message for version not found
+                logger.error(
+                    f"Version {version} not found for package {normalized_name}"
+                )
+                raise PackageNotFoundError(
+                    f"Version {version} not found for package {normalized_name}"
+                )
+            else:
+                logger.error(f"Failed to fetch package info for {normalized_name}: {e}")
+                raise
         except Exception as e:
-            logger.error(f"Failed to fetch package info for {normalized_name}: {e}")
+            logger.error(
+                f"Failed to fetch package info for {normalized_name} version {version or 'latest'}: {e}"
+            )
             raise
 
     async def get_package_versions(
@@ -220,7 +246,9 @@ class PyPIClient:
         Returns:
             List of version strings
         """
-        package_info = await self.get_package_info(package_name, use_cache)
+        package_info = await self.get_package_info(
+            package_name, version=None, use_cache=use_cache
+        )
         releases = package_info.get("releases", {})
         return list(releases.keys())
 
@@ -236,7 +264,9 @@ class PyPIClient:
         Returns:
             Latest version string
         """
-        package_info = await self.get_package_info(package_name, use_cache)
+        package_info = await self.get_package_info(
+            package_name, version=None, use_cache=use_cache
+        )
         return package_info.get("info", {}).get("version", "")
 
     def clear_cache(self):

@@ -127,7 +127,7 @@ class TestDownloadStats:
 
     @pytest.mark.asyncio
     async def test_get_top_packages_by_downloads_success(self):
-        """Test successful top packages retrieval."""
+        """Test successful top packages retrieval with real PyPI stats."""
         mock_stats_data = {
             "data": {
                 "last_month": 50000000,
@@ -152,6 +152,115 @@ class TestDownloadStats:
             assert all("rank" in pkg for pkg in result["top_packages"])
             assert all("package" in pkg for pkg in result["top_packages"])
             assert all("downloads" in pkg for pkg in result["top_packages"])
+            assert "methodology" in result
+            assert "data_source" in result
+
+    @pytest.mark.asyncio
+    async def test_get_top_packages_by_downloads_fallback(self):
+        """Test top packages retrieval when PyPI API fails (fallback mode)."""
+        from pypi_query_mcp.core.exceptions import PyPIServerError
+
+        with patch(
+            "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+        ) as mock_stats_client:
+            mock_stats_instance = AsyncMock()
+            mock_stats_instance.get_recent_downloads.side_effect = PyPIServerError(502)
+            mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance
+
+            result = await get_top_packages_by_downloads("month", 5)
+
+            # Should still return results using fallback data
+            assert "top_packages" in result
+            assert result["period"] == "month"
+            assert result["limit"] == 5
+            assert len(result["top_packages"]) == 5
+            assert all("rank" in pkg for pkg in result["top_packages"])
+            assert all("package" in pkg for pkg in result["top_packages"])
+            assert all("downloads" in pkg for pkg in result["top_packages"])
+            assert all("category" in pkg for pkg in result["top_packages"])
+            assert all("description" in pkg for pkg in result["top_packages"])
+            assert "curated" in result["data_source"]
+
+            # Check that all packages have estimated downloads
+            assert all(pkg.get("estimated", False) for pkg in result["top_packages"])
+
+    @pytest.mark.asyncio
+    async def test_get_top_packages_github_enhancement(self):
+        """Test GitHub enhancement functionality."""
+        from pypi_query_mcp.core.exceptions import PyPIServerError
+
+        mock_github_stats = {
+            "stars": 50000,
+            "forks": 5000,
+            "updated_at": "2024-01-01T00:00:00Z",
+            "language": "Python",
+            "topics": ["http", "requests"],
+        }
+
+        with (
+            patch(
+                "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+            ) as mock_stats_client,
+            patch(
+                "pypi_query_mcp.tools.download_stats.GitHubAPIClient"
+            ) as mock_github_client,
+        ):
+            # Mock PyPI failure
+            mock_stats_instance = AsyncMock()
+            mock_stats_instance.get_recent_downloads.side_effect = PyPIServerError(502)
+            mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance
+
+            # Mock GitHub success
+            mock_github_instance = AsyncMock()
+            mock_github_instance.get_multiple_repo_stats.return_value = {
+                "psf/requests": mock_github_stats
+            }
+            mock_github_client.return_value.__aenter__.return_value = (
+                mock_github_instance
+            )
+
+            result = await get_top_packages_by_downloads("month", 10)
+
+            # Find requests package (should be enhanced with GitHub data)
+            requests_pkg = next(
+                (pkg for pkg in result["top_packages"] if pkg["package"] == "requests"),
+                None,
+            )
+
+            if requests_pkg:
+                assert "github_stars" in requests_pkg
+                assert "github_forks" in requests_pkg
+                assert requests_pkg["github_stars"] == 50000
+                assert requests_pkg.get("github_enhanced", False) == True
+
+    @pytest.mark.asyncio
+    async def test_get_top_packages_different_periods(self):
+        """Test top packages with different time periods."""
+        from pypi_query_mcp.core.exceptions import PyPIServerError
+
+        with patch(
+            "pypi_query_mcp.tools.download_stats.PyPIStatsClient"
+        ) as mock_stats_client:
+            mock_stats_instance = AsyncMock()
+            mock_stats_instance.get_recent_downloads.side_effect = PyPIServerError(502)
+            mock_stats_client.return_value.__aenter__.return_value = mock_stats_instance
+
+            for period in ["day", "week", "month"]:
+                result = await get_top_packages_by_downloads(period, 3)
+
+                assert result["period"] == period
+                assert len(result["top_packages"]) == 3
+
+                # Check that downloads are scaled appropriately for the period
+                # Day should have much smaller numbers than month
+                if period == "day":
+                    assert all(
+                        pkg["downloads"] < 50_000_000 for pkg in result["top_packages"]
+                    )
+                elif period == "month":
+                    assert any(
+                        pkg["downloads"] > 100_000_000 for pkg in result["top_packages"]
+                    )
 
     def test_analyze_download_stats(self):
         """Test download statistics analysis."""

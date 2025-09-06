@@ -284,3 +284,62 @@ class VersionCompatibility:
             )
 
         return recommendations
+
+
+def sort_versions_semantically(versions: list[str], reverse: bool = True) -> list[str]:
+    """Sort package versions using semantic version ordering.
+
+    This function properly sorts versions by parsing them as semantic versions,
+    ensuring that pre-release versions (alpha, beta, rc) are ordered correctly
+    relative to stable releases.
+
+    Args:
+        versions: List of version strings to sort
+        reverse: If True, sort in descending order (newest first). Default True.
+
+    Returns:
+        List of version strings sorted semantically
+
+    Examples:
+        >>> sort_versions_semantically(['1.0.0', '2.0.0a1', '1.5.0', '2.0.0'])
+        ['2.0.0', '2.0.0a1', '1.5.0', '1.0.0']
+
+        >>> sort_versions_semantically(['5.2rc1', '5.2.5', '5.2.0'])
+        ['5.2.5', '5.2.0', '5.2rc1']
+    """
+    if not versions:
+        return []
+
+    def parse_version_safe(version_str: str) -> tuple[Version | None, str]:
+        """Safely parse a version string, returning (parsed_version, original_string).
+
+        Returns (None, original_string) if parsing fails.
+        """
+        try:
+            return (Version(version_str), version_str)
+        except InvalidVersion:
+            logger.debug(f"Failed to parse version '{version_str}' as semantic version")
+            return (None, version_str)
+
+    # Parse all versions, keeping track of originals
+    parsed_versions = [parse_version_safe(v) for v in versions]
+
+    # Separate valid and invalid versions
+    valid_versions = [(v, orig) for v, orig in parsed_versions if v is not None]
+    invalid_versions = [orig for v, orig in parsed_versions if v is None]
+
+    # Sort valid versions semantically
+    valid_versions.sort(key=lambda x: x[0], reverse=reverse)
+
+    # Sort invalid versions lexicographically as fallback
+    invalid_versions.sort(reverse=reverse)
+
+    # Combine results: valid versions first, then invalid ones
+    result = [orig for _, orig in valid_versions] + invalid_versions
+
+    logger.debug(
+        f"Sorted {len(versions)} versions: {len(valid_versions)} valid, "
+        f"{len(invalid_versions)} invalid"
+    )
+
+    return result

@@ -39,7 +39,7 @@ async def check_python_compatibility(
 
     try:
         async with PyPIClient() as client:
-            package_data = await client.get_package_info(package_name, use_cache)
+            package_data = await client.get_package_info(package_name, use_cache=use_cache)
 
             info = package_data.get("info", {})
             requires_python = info.get("requires_python")
@@ -103,7 +103,7 @@ async def get_compatible_python_versions(
 
     try:
         async with PyPIClient() as client:
-            package_data = await client.get_package_info(package_name, use_cache)
+            package_data = await client.get_package_info(package_name, use_cache=use_cache)
 
             info = package_data.get("info", {})
             requires_python = info.get("requires_python")
@@ -177,7 +177,7 @@ async def suggest_python_version_for_packages(
     async with PyPIClient() as client:
         for package_name in package_names:
             try:
-                package_data = await client.get_package_info(package_name, use_cache)
+                package_data = await client.get_package_info(package_name, use_cache=use_cache)
                 info = package_data.get("info", {})
 
                 requires_python = info.get("requires_python")

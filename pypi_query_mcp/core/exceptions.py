@@ -54,3 +54,32 @@ class PyPIServerError(PyPIError):
         if not message:
             message = f"PyPI server error (HTTP {status_code})"
         super().__init__(message, status_code=status_code)
+
+
+class SearchError(PyPIError):
+    """Raised when search operations fail."""
+
+    def __init__(self, message: str, query: str | None = None):
+        super().__init__(message)
+        self.query = query
+
+
+class PyPIAuthenticationError(PyPIError):
+    """Raised when PyPI authentication fails."""
+    
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message, status_code)
+
+
+class PyPIUploadError(PyPIError):
+    """Raised when PyPI upload operations fail."""
+    
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message, status_code)
+
+
+class PyPIPermissionError(PyPIError):
+    """Raised when PyPI permission operations fail."""
+    
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message, status_code)
