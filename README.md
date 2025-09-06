@@ -1,12 +1,61 @@
-# mcpypi 🥧
+# 🎤 mcpypi 🥧
+### *Your Master of Ceremonies for PyPI*
 
-[![PyPI version](https://img.shields.io/pypi/v/mcpypi.svg)](https://pypi.org/project/mcpypi/)
+<div align="center">
 
-**mcpypi** (pronounced "MC-py-pie") is your **Master of Ceremonies** for PyPI! 🎤
+[![PyPI version](https://img.shields.io/pypi/v/mcpypi.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/mcpypi/)
+[![Python versions](https://img.shields.io/pypi/pyversions/mcpypi.svg?style=for-the-badge&logo=python&logoColor=white)](https://pypi.org/project/mcpypi/)
+[![Downloads](https://img.shields.io/pypi/dm/mcpypi.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/mcpypi/)
+[![License](https://img.shields.io/pypi/l/mcpypi.svg?style=for-the-badge)](https://github.com/loonghao/pypi-query-mcp-server/blob/main/LICENSE)
 
-Just like a DJ or MC controls the music and keeps the party flowing, mcpypi orchestrates your Python package management through the Model Context Protocol (MCP). It's a playful blend of "MCP" + "PyPI" + the Python community's beloved tradition of naming everything with "pie" 🥧 (like NumPy, SciPy, etc.).
+</div>
 
-Think of mcpypi as your intelligent package DJ - it knows all the tracks (packages), their dependencies, security vulnerabilities, licenses, and can help you mix the perfect environment for your Python projects!
+---
+
+> **mcpypi** (pronounced "MC-py-pie") is your **Master of Ceremonies** for PyPI! 🎤
+> 
+> *The ultimate PyPI package intelligence platform, now available through Model Context Protocol*
+
+Just like a world-class DJ or MC controls the music and keeps the party flowing, **mcpypi** orchestrates your entire Python package ecosystem. It's the perfect fusion of "**MCP**" + "**PyPI**" + the Python community's beloved tradition of naming everything with "**pie**" 🥧 (NumPy, SciPy, SymPy... you get it!).
+
+Think of mcpypi as your **intelligent package DJ** - it knows all the tracks (packages), their dependencies, security vulnerabilities, licenses, and can help you mix the perfect environment for your Python projects!
+
+## 🌟 Why mcpypi?
+
+<table>
+<tr>
+<td width="50%">
+
+### 🎯 **37 Powerful Tools**
+Complete PyPI analysis suite across 8 categories
+
+### 🔒 **Security First**
+OSV database integration + GitHub advisories
+
+### 📊 **Real-time Analytics** 
+Live download stats, trends, and rankings
+
+### 🏥 **Health Scoring**
+7-category package quality assessment
+
+</td>
+<td width="50%">
+
+### 📄 **License Intelligence**
+SPDX compatibility analysis + risk assessment  
+
+### 🔍 **Deep Analysis**
+Dependency trees, requirements parsing, bulk operations
+
+### ⚡ **Lightning Fast**
+Async operations with intelligent caching
+
+### 🎤 **MCP Integration**
+Works with Claude Code, Claude Desktop, Cursor, and more!
+
+</td>
+</tr>
+</table>
 
 ## Features
 
@@ -27,31 +76,99 @@ Your MC knows how to drop the beats! 🎵
 - ⚡ **Live Performance** - Fast async operations with intelligent caching
 - 🛠️ **Universal Mixer** - Easy integration with all MCP clients
 
-## Installation
+## 🚀 Quick Start
 
 Ready to get your MC on the decks? Here's how to book mcpypi for your next Python party! 🎉
 
-### Using uvx (recommended)
+### Option 1: Lightning Setup ⚡ (Recommended)
 
 ```bash
-# Run directly with uvx
+# One-liner - Run immediately with uvx
 uvx mcpypi
-
-# Or install and run with specific script
-uvx --from mcpypi mcpypi
 ```
 
-### Using pip
+### Option 2: Traditional Install 📦
 
 ```bash
 # Install from PyPI
 pip install mcpypi
 
-# Run the server
+# Run the server  
 python -m pypi_query_mcp.server
 ```
 
-### From source
+### Option 3: Claude Code Integration 🎤
+
+```bash  
+# Connect directly to Claude Code
+claude mcp add mcpypi -- uvx mcpypi
+```
+
+<div align="center">
+
+### 🎊 **That's it! Your MC is now live and ready to rock!** 🎊
+
+</div>
+
+---
+
+## 🎭 Live Demo
+
+Here's what your MC can do for you:
+
+<table>
+<tr>
+<td align="center">
+
+### 🔍 **Package Intelligence**
+```python
+"What are the security vulnerabilities 
+in Django 4.1?"
+```
+*Get real-time security analysis with OSV database*
+
+</td>
+<td align="center">
+
+### 📊 **Trend Analysis**
+```python
+"Show me the top 10 trending 
+ML packages this week"
+```
+*Live PyPI download trends and rankings*
+
+</td>
+</tr>
+<tr>
+<td align="center">
+
+### 🏥 **Health Scoring**
+```python
+"Compare the health scores of 
+FastAPI vs Django vs Flask"
+```
+*7-category quality assessment with GitHub metrics*
+
+</td>
+<td align="center">
+
+### 📄 **License Compliance**
+```python
+"Check if my requirements.txt 
+is MIT license compatible"
+```
+*SPDX normalization with risk assessment*
+
+</td>
+</tr>
+</table>
+
+---
+
+### 🛠️ Advanced Installation
+
+<details>
+<summary><b>Development Setup</b></summary>
 
 ```bash
 git clone https://github.com/loonghao/pypi-query-mcp-server.git
@@ -60,9 +177,24 @@ uv sync
 uv run pypi-query-mcp
 ```
 
-## Configuration
+</details>
 
-### Claude Desktop
+---
+
+## 🎛️ Configuration
+
+<div align="center">
+
+**mcpypi works with ALL major MCP clients!**
+
+[![Claude Desktop](https://img.shields.io/badge/Claude_Desktop-Ready-blue?style=for-the-badge&logo=anthropic)](https://claude.ai/desktop)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-Ready-blue?style=for-the-badge&logo=anthropic)](https://claude.ai/code)
+[![Cursor](https://img.shields.io/badge/Cursor-Ready-blue?style=for-the-badge&logo=cursor)](https://cursor.sh/)
+[![Windsurf](https://img.shields.io/badge/Windsurf-Ready-blue?style=for-the-badge)](https://codeium.com/windsurf)
+
+</div>
+
+### 🖥️ Claude Desktop
 
 Add to your Claude Desktop configuration file:
 
