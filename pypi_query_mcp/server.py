@@ -70,6 +70,18 @@ from .tools import (
     get_pypi_package_reviews,
     manage_pypi_package_discussions,
     get_pypi_maintainer_contacts,
+    # Security tools
+    bulk_scan_package_security,
+    scan_pypi_package_security,
+    # License tools
+    analyze_pypi_package_license,
+    check_bulk_license_compliance,
+    # Health tools
+    assess_package_health_score,
+    compare_packages_health_scores,
+    # Requirements tools
+    analyze_requirements_file_tool,
+    compare_multiple_requirements_files,
 )
 
 # Configure logging
@@ -1926,6 +1938,390 @@ async def get_pypi_maintainer_contacts_tool(
             "error": str(e),
             "error_type": type(e).__name__,
             "package_name": package_name,
+        }
+
+
+@mcp.tool()
+async def scan_pypi_package_security_tool(
+    package_name: str,
+    version: str | None = None,
+    include_dependencies: bool = True,
+    severity_filter: str | None = None
+) -> dict[str, Any]:
+    """Scan a PyPI package for security vulnerabilities.
+    
+    This tool performs comprehensive security vulnerability scanning of PyPI packages,
+    checking against multiple vulnerability databases including OSV (Open Source Vulnerabilities),
+    GitHub Security Advisories, and analyzing package metadata for security indicators.
+    
+    Args:
+        package_name: Name of the package to scan for vulnerabilities
+        version: Specific version to scan (optional, defaults to latest version)
+        include_dependencies: Whether to scan package dependencies for vulnerabilities  
+        severity_filter: Filter results by severity level (low, medium, high, critical)
+        
+    Returns:
+        Dictionary containing comprehensive security scan results including:
+        - Total vulnerability count and severity breakdown
+        - Direct package vulnerabilities vs dependency vulnerabilities
+        - Risk score and level assessment (minimal, low, medium, high, critical)
+        - Detailed vulnerability information with IDs, descriptions, and references
+        - Package metadata security analysis
+        - Actionable security recommendations
+    
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+        SearchError: If security scanning fails
+    """
+    try:
+        logger.info(f"MCP tool: Scanning security vulnerabilities for {package_name}")
+        result = await scan_pypi_package_security(
+            package_name, version, include_dependencies, severity_filter
+        )
+        logger.info(f"Security scan completed for {package_name} - found {result.get('security_summary', {}).get('total_vulnerabilities', 0)} vulnerabilities")
+        return result
+    except Exception as e:
+        logger.error(f"Error scanning security for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package": package_name,
+            "version": version,
+        }
+
+
+@mcp.tool()
+async def bulk_scan_package_security_tool(
+    package_names: list[str],
+    include_dependencies: bool = False,
+    severity_threshold: str = "medium"
+) -> dict[str, Any]:
+    """Perform bulk security scanning of multiple PyPI packages.
+    
+    This tool scans multiple packages simultaneously for security vulnerabilities,
+    providing a consolidated report with summary statistics and prioritized
+    recommendations for addressing security issues across your package ecosystem.
+    
+    Args:
+        package_names: List of package names to scan for vulnerabilities
+        include_dependencies: Whether to include dependency vulnerability scanning
+        severity_threshold: Minimum severity level to report (low, medium, high, critical)
+        
+    Returns:
+        Dictionary containing bulk scan results including:
+        - Summary statistics (total packages, packages with vulnerabilities, high-risk packages)
+        - Detailed scan results for each package
+        - Prioritized recommendations for security remediation
+        - Scan timestamp and completion status
+        
+    Raises:
+        ValueError: If package_names list is empty
+        NetworkError: For network-related errors during scanning
+        SearchError: If bulk scanning fails
+    """
+    try:
+        logger.info(f"MCP tool: Starting bulk security scan of {len(package_names)} packages")
+        result = await bulk_scan_package_security(
+            package_names, include_dependencies, severity_threshold
+        )
+        logger.info(f"Bulk security scan completed - {result.get('summary', {}).get('packages_with_vulnerabilities', 0)} packages have vulnerabilities")
+        return result
+    except Exception as e:
+        logger.error(f"Error in bulk security scan: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_names": package_names,
+        }
+
+
+@mcp.tool()
+async def analyze_pypi_package_license_tool(
+    package_name: str,
+    version: str | None = None,
+    include_dependencies: bool = True
+) -> dict[str, Any]:
+    """Analyze license compatibility for a PyPI package.
+    
+    This tool provides comprehensive license analysis including license identification,
+    dependency license scanning, compatibility checking, and risk assessment to help
+    ensure your project complies with open source license requirements.
+    
+    Args:
+        package_name: Name of the package to analyze for license compatibility
+        version: Specific version to analyze (optional, defaults to latest version)
+        include_dependencies: Whether to analyze dependency licenses for compatibility
+        
+    Returns:
+        Dictionary containing comprehensive license analysis including:
+        - License identification and normalization (SPDX format)
+        - License categorization (permissive, copyleft, proprietary, etc.)
+        - Dependency license analysis and compatibility matrix
+        - Risk assessment with score and risk level (minimal, low, medium, high, critical)
+        - Compatibility analysis highlighting conflicts and review-required combinations
+        - Actionable recommendations for license compliance
+    
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+        SearchError: If license analysis fails
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing license compatibility for {package_name}")
+        result = await analyze_pypi_package_license(
+            package_name, version, include_dependencies
+        )
+        logger.info(f"License analysis completed for {package_name} - {result.get('analysis_summary', {}).get('license_conflicts', 0)} conflicts found")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing license for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package": package_name,
+            "version": version,
+        }
+
+
+@mcp.tool()
+async def check_bulk_license_compliance_tool(
+    package_names: list[str],
+    target_license: str | None = None
+) -> dict[str, Any]:
+    """Check license compliance for multiple PyPI packages.
+    
+    This tool performs bulk license compliance checking across multiple packages,
+    providing a consolidated report to help ensure your entire package ecosystem
+    complies with license requirements and identifying potential legal risks.
+    
+    Args:
+        package_names: List of package names to check for license compliance
+        target_license: Target license for compatibility checking (optional)
+        
+    Returns:
+        Dictionary containing bulk compliance analysis including:
+        - Summary statistics (total packages, compliant/non-compliant counts)
+        - Detailed license analysis for each package
+        - High-risk packages requiring immediate attention
+        - Unknown license packages needing investigation
+        - Prioritized recommendations for compliance remediation
+        
+    Raises:
+        ValueError: If package_names list is empty
+        NetworkError: For network-related errors during analysis
+        SearchError: If bulk compliance checking fails
+    """
+    try:
+        logger.info(f"MCP tool: Starting bulk license compliance check for {len(package_names)} packages")
+        result = await check_bulk_license_compliance(
+            package_names, target_license
+        )
+        logger.info(f"Bulk license compliance completed - {result.get('summary', {}).get('non_compliant_packages', 0)} non-compliant packages found")
+        return result
+    except Exception as e:
+        logger.error(f"Error in bulk license compliance check: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_names": package_names,
+        }
+
+
+@mcp.tool()
+async def assess_package_health_score_tool(
+    package_name: str,
+    version: str | None = None,
+    include_github_metrics: bool = True
+) -> dict[str, Any]:
+    """Assess comprehensive health and quality of a PyPI package.
+    
+    This tool evaluates package health across multiple dimensions including maintenance,
+    popularity, documentation, testing, security practices, compatibility, and metadata
+    completeness to provide an overall health score and actionable recommendations.
+    
+    Args:
+        package_name: Name of the package to assess for health and quality
+        version: Specific version to assess (optional, defaults to latest version)
+        include_github_metrics: Whether to fetch GitHub repository metrics for analysis
+        
+    Returns:
+        Dictionary containing comprehensive health assessment including:
+        - Overall health score (0-100) and level (excellent/good/fair/poor/critical)
+        - Category-specific scores (maintenance, popularity, documentation, testing, etc.)
+        - Detailed assessment breakdown with indicators and issues for each category
+        - GitHub repository metrics (stars, forks, activity) if available
+        - Actionable recommendations for health improvements
+        - Strengths, weaknesses, and improvement priorities analysis
+    
+    Raises:
+        InvalidPackageNameError: If package name is empty or invalid
+        PackageNotFoundError: If package is not found on PyPI
+        NetworkError: For network-related errors
+        SearchError: If health assessment fails
+    """
+    try:
+        logger.info(f"MCP tool: Assessing health for {package_name}")
+        result = await assess_package_health_score(
+            package_name, version, include_github_metrics
+        )
+        overall_score = result.get("overall_health", {}).get("score", 0)
+        health_level = result.get("overall_health", {}).get("level", "unknown")
+        logger.info(f"Health assessment completed for {package_name} - score: {overall_score:.1f}/100 ({health_level})")
+        return result
+    except Exception as e:
+        logger.error(f"Error assessing health for {package_name}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package": package_name,
+            "version": version,
+        }
+
+
+@mcp.tool()
+async def compare_packages_health_scores_tool(
+    package_names: list[str],
+    include_github_metrics: bool = False
+) -> dict[str, Any]:
+    """Compare health scores across multiple PyPI packages.
+    
+    This tool performs comparative health analysis across multiple packages,
+    providing rankings, insights, and recommendations to help evaluate
+    package ecosystem quality and identify the best options.
+    
+    Args:
+        package_names: List of package names to compare for health and quality
+        include_github_metrics: Whether to include GitHub metrics in the comparison
+        
+    Returns:
+        Dictionary containing comparative health analysis including:
+        - Detailed health results for each package
+        - Health score rankings with best/worst package identification
+        - Comparison insights (average scores, score ranges, rankings)
+        - Recommendations for package selection and improvements
+        - Statistical analysis of health across the package set
+        
+    Raises:
+        ValueError: If package_names list is empty
+        NetworkError: For network-related errors during analysis
+        SearchError: If health comparison fails
+    """
+    try:
+        logger.info(f"MCP tool: Starting health comparison for {len(package_names)} packages")
+        result = await compare_packages_health_scores(
+            package_names, include_github_metrics
+        )
+        comparison_insights = result.get("comparison_insights", {})
+        best_package = comparison_insights.get("best_package", {})
+        packages_compared = result.get("packages_compared", 0)
+        logger.info(f"Health comparison completed for {packages_compared} packages - best: {best_package.get('name', 'unknown')} ({best_package.get('score', 0):.1f}/100)")
+        return result
+    except Exception as e:
+        logger.error(f"Error in health comparison: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "package_names": package_names,
+        }
+
+
+@mcp.tool()
+async def analyze_requirements_file_tool_mcp(
+    file_path: str,
+    check_updates: bool = True,
+    security_scan: bool = True,
+    compatibility_check: bool = True
+) -> dict[str, Any]:
+    """Analyze project requirements file for dependencies, security, and compatibility.
+    
+    This tool provides comprehensive analysis of Python project requirements files
+    including dependency parsing, version checking, security vulnerability scanning,
+    Python compatibility assessment, and actionable recommendations for improvements.
+    
+    Args:
+        file_path: Path to the requirements file (requirements.txt, pyproject.toml, setup.py, etc.)
+        check_updates: Whether to check for available package updates
+        security_scan: Whether to perform security vulnerability scanning on dependencies
+        compatibility_check: Whether to check Python version compatibility for all dependencies
+        
+    Returns:
+        Dictionary containing comprehensive requirements analysis including:
+        - File information and detected format (requirements.txt, pyproject.toml, etc.)
+        - Parsed dependencies with version specifiers and extras
+        - Dependency health analysis with specification issues and recommendations
+        - Package update analysis showing outdated packages and latest versions
+        - Security vulnerability scan results for all dependencies
+        - Python version compatibility assessment
+        - Overall risk level and actionable improvement recommendations
+    
+    Raises:
+        FileNotFoundError: If the requirements file is not found
+        NetworkError: For network-related errors during analysis
+        SearchError: If requirements analysis fails
+    """
+    try:
+        logger.info(f"MCP tool: Analyzing requirements file {file_path}")
+        result = await analyze_requirements_file_tool(
+            file_path, check_updates, security_scan, compatibility_check
+        )
+        summary = result.get("analysis_summary", {})
+        total_deps = summary.get("total_dependencies", 0)
+        risk_level = summary.get("overall_risk_level", "unknown")
+        logger.info(f"Requirements analysis completed for {file_path} - {total_deps} dependencies, risk level: {risk_level}")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing requirements file {file_path}: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "file_path": file_path,
+        }
+
+
+@mcp.tool()
+async def compare_multiple_requirements_files_mcp(
+    file_paths: list[str]
+) -> dict[str, Any]:
+    """Compare multiple requirements files to identify differences and conflicts.
+    
+    This tool analyzes multiple requirements files simultaneously to identify
+    version conflicts, unique dependencies, and inconsistencies across different
+    project configurations or environments.
+    
+    Args:
+        file_paths: List of paths to requirements files to compare and analyze
+        
+    Returns:
+        Dictionary containing comparative requirements analysis including:
+        - Detailed analysis results for each individual file
+        - Common packages shared across all files
+        - Conflicting package versions between files with specific version details
+        - Packages unique to specific files
+        - Recommendations for resolving conflicts and standardizing requirements
+        - Statistics on package overlap and conflict rates
+        
+    Raises:
+        ValueError: If file_paths list is empty
+        NetworkError: For network-related errors during analysis
+        SearchError: If requirements comparison fails
+    """
+    try:
+        logger.info(f"MCP tool: Comparing {len(file_paths)} requirements files")
+        result = await compare_multiple_requirements_files(file_paths)
+        comparison_results = result.get("comparison_results", {})
+        conflicts = len(comparison_results.get("conflicting_packages", []))
+        total_packages = comparison_results.get("total_unique_packages", 0)
+        logger.info(f"Requirements comparison completed - {total_packages} unique packages, {conflicts} conflicts found")
+        return result
+    except Exception as e:
+        logger.error(f"Error comparing requirements files: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "file_paths": file_paths,
         }
 
 

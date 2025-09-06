@@ -692,6 +692,21 @@ rich = ">=13.9.4"
 websockets = ["websockets (>=15.0.1)"]
 
 [[package]]
+name = "feedparser"
+version = "6.0.11"
+description = "Universal feed parser, handles RSS 0.9x, RSS 1.0, RSS 2.0, CDF, Atom 0.3, and Atom 1.0 feeds"
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "feedparser-6.0.11-py3-none-any.whl", hash = "sha256:0be7ee7b395572b19ebeb1d6aafb0028dee11169f1c934e0ed67d54992f4ad45"},
+    {file = "feedparser-6.0.11.tar.gz", hash = "sha256:c9d0407b64c6f2a065d0ebb292c2b35c01050cc0dc33757461aaabdc4c4184d5"},
+]
+
+[package.dependencies]
+sgmllib3k = "*"
+
+[[package]]
 name = "filelock"
 version = "3.19.1"
 description = "A platform independent file lock."
@@ -1995,6 +2010,17 @@ files = [
 ]
 
 [[package]]
+name = "sgmllib3k"
+version = "1.0.0"
+description = "Py3k port of sgmllib."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9"},
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -2250,4 +2276,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "9785e18d2d996f5e58e1b06c722f6de31c445a1a83528f39227d1c373b91f989"
+content-hash = "13bc4176d567d6738ca9ca5ebd67565f8526853434911137f4b51b39e275a546"

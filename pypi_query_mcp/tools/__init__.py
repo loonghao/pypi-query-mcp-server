@@ -64,6 +64,22 @@ from .search import (
     search_by_category,
     search_packages,
 )
+from .security_tools import (
+    bulk_scan_package_security,
+    scan_pypi_package_security,
+)
+from .license_tools import (
+    analyze_pypi_package_license,
+    check_bulk_license_compliance,
+)
+from .health_tools import (
+    assess_package_health_score,
+    compare_packages_health_scores,
+)
+from .requirements_tools import (
+    analyze_requirements_file_tool,
+    compare_multiple_requirements_files,
+)
 
 __all__ = [
     # Core package tools
@@ -114,4 +130,16 @@ __all__ = [
     "get_pypi_package_reviews",
     "manage_pypi_package_discussions",
     "get_pypi_maintainer_contacts",
+    # Security tools
+    "scan_pypi_package_security",
+    "bulk_scan_package_security",
+    # License tools
+    "analyze_pypi_package_license",
+    "check_bulk_license_compliance",
+    # Health tools
+    "assess_package_health_score",
+    "compare_packages_health_scores",
+    # Requirements tools
+    "analyze_requirements_file_tool",
+    "compare_multiple_requirements_files",
 ]

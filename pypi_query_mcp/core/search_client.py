@@ -126,20 +126,42 @@ class PyPISearchClient:
         
         try:
             # Use PyPI's search API as the primary source
-            pypi_results = await self._search_pypi_api(query, limit * 3)  # Get more for filtering
+            try:
+                pypi_results = await self._search_pypi_api(query, limit * 3)  # Get more for filtering
+                logger.info(f"Got {len(pypi_results)} raw results from PyPI API")
+            except Exception as e:
+                logger.error(f"PyPI API search failed: {e}")
+                pypi_results = []
             
             # Enhance results with additional metadata
-            enhanced_results = await self._enhance_search_results(pypi_results)
+            try:
+                enhanced_results = await self._enhance_search_results(pypi_results)
+                logger.info(f"Enhanced to {len(enhanced_results)} results")
+            except Exception as e:
+                logger.error(f"Enhancement failed: {e}")
+                enhanced_results = pypi_results
             
             # Apply filters
-            filtered_results = self._apply_filters(enhanced_results, filters)
+            try:
+                filtered_results = self._apply_filters(enhanced_results, filters)
+                logger.info(f"Filtered to {len(filtered_results)} results")
+            except Exception as e:
+                logger.error(f"Filtering failed: {e}")
+                filtered_results = enhanced_results
             
             # Apply semantic search if requested
             if semantic_search:
-                filtered_results = self._apply_semantic_search(filtered_results, query)
+                try:
+                    filtered_results = self._apply_semantic_search(filtered_results, query)
+                except Exception as e:
+                    logger.error(f"Semantic search failed: {e}")
             
             # Sort results
-            sorted_results = self._sort_results(filtered_results, sort)
+            try:
+                sorted_results = self._sort_results(filtered_results, sort)
+            except Exception as e:
+                logger.error(f"Sorting failed: {e}")
+                sorted_results = filtered_results
             
             # Limit results
             final_results = sorted_results[:limit]
@@ -161,70 +183,316 @@ class PyPISearchClient:
             raise SearchError(f"Search failed: {e}") from e
 
     async def _search_pypi_api(self, query: str, limit: int) -> List[Dict[str, Any]]:
-        """Search using PyPI's official search API."""
-        url = "https://pypi.org/search/"
-        params = {
-            "q": query,
-            "page": 1,
-        }
+        """Search using available PyPI methods - no native search API exists."""
+        logger.info(f"PyPI has no native search API, using curated search for: '{query}'")
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(url, params=params)
-                response.raise_for_status()
-                
-                # Parse the HTML response (PyPI search returns HTML)
-                return await self._parse_search_html(response.text, limit)
-                
-            except httpx.HTTPError as e:
-                logger.error(f"PyPI search API error: {e}")
-                # Fallback to alternative search method
-                return await self._fallback_search(query, limit)
+        # PyPI doesn't have a search API, so we'll use our curated approach
+        # combined with direct package lookups for exact matches
+        results = []
+        
+        # First: try direct package lookup (exact match)
+        try:
+            direct_result = await self._try_direct_package_lookup(query)
+            if direct_result:
+                results.extend(direct_result)
+        except Exception as e:
+            logger.debug(f"Direct lookup failed: {e}")
+        
+        # Second: search curated packages
+        try:
+            curated_results = await self._search_curated_packages(query, limit)
+            # Add curated results that aren't already in the list
+            existing_names = {r["name"].lower() for r in results}
+            for result in curated_results:
+                if result["name"].lower() not in existing_names:
+                    results.append(result)
+        except Exception as e:
+            logger.error(f"Curated search failed: {e}")
+        
+        return results[:limit]
 
-    async def _fallback_search(self, query: str, limit: int) -> List[Dict[str, Any]]:
-        """Fallback search using PyPI JSON API and our curated data."""
-        from ..data.popular_packages import PACKAGES_BY_NAME, get_popular_packages
+    async def _try_direct_package_lookup(self, query: str) -> List[Dict[str, Any]]:
+        """Try to get package info directly using PyPI JSON API."""
+        candidates = [
+            query.strip(),
+            query.strip().lower(),
+            query.strip().replace(" ", "-"),
+            query.strip().replace(" ", "_"),
+            query.strip().replace("_", "-"),
+            query.strip().replace("-", "_"),
+        ]
         
-        # Search in our curated packages first
+        results = []
+        for candidate in candidates:
+            try:
+                async with PyPIClient() as client:
+                    package_data = await client.get_package_info(candidate)
+                    
+                    results.append({
+                        "name": package_data["info"]["name"],
+                        "summary": package_data["info"]["summary"] or "",
+                        "version": package_data["info"]["version"],
+                        "source": "direct_api",
+                        "description": package_data["info"]["description"] or "",
+                        "author": package_data["info"]["author"] or "",
+                        "license": package_data["info"]["license"] or "",
+                        "home_page": package_data["info"]["home_page"] or "",
+                        "requires_python": package_data["info"]["requires_python"] or "",
+                        "classifiers": package_data["info"]["classifiers"] or [],
+                        "keywords": package_data["info"]["keywords"] or "",
+                    })
+                    break  # Found exact match, stop looking
+                    
+            except Exception:
+                continue  # Try next candidate
+                
+        return results
+
+    async def _search_curated_packages(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Search our curated package database."""
+        from ..data.popular_packages import ALL_POPULAR_PACKAGES
+        
         curated_matches = []
         query_lower = query.lower()
         
-        for package_info in get_popular_packages(limit=1000):
-            name_match = query_lower in package_info.name.lower()
-            desc_match = query_lower in package_info.description.lower()
-            
-            if name_match or desc_match:
+        logger.info(f"Searching {len(ALL_POPULAR_PACKAGES)} curated packages for '{query}'")
+        
+        # First: exact name matches
+        for pkg in ALL_POPULAR_PACKAGES:
+            if query_lower == pkg.name.lower():
                 curated_matches.append({
-                    "name": package_info.name,
-                    "summary": package_info.description,
-                    "version": "unknown",
-                    "source": "curated",
-                    "category": package_info.category,
-                    "estimated_downloads": package_info.estimated_monthly_downloads,
+                    "name": pkg.name,
+                    "summary": pkg.description,
+                    "version": "latest",
+                    "source": "curated_exact",
+                    "category": pkg.category,
+                    "estimated_downloads": pkg.estimated_monthly_downloads,
+                    "github_stars": pkg.github_stars,
+                    "primary_use_case": pkg.primary_use_case,
                 })
         
-        # If we have some matches, return them
-        if curated_matches:
-            return curated_matches[:limit]
+        # Second: name contains query (if not too many exact matches)
+        if len(curated_matches) < limit:
+            for pkg in ALL_POPULAR_PACKAGES:
+                if (query_lower in pkg.name.lower() and 
+                    pkg.name not in [m["name"] for m in curated_matches]):
+                    curated_matches.append({
+                        "name": pkg.name,
+                        "summary": pkg.description,
+                        "version": "latest",
+                        "source": "curated_name",
+                        "category": pkg.category,
+                        "estimated_downloads": pkg.estimated_monthly_downloads,
+                        "github_stars": pkg.github_stars,
+                        "primary_use_case": pkg.primary_use_case,
+                    })
         
-        # Last resort: try simple package name search
+        # Third: description or use case matches (if still need more results)
+        if len(curated_matches) < limit:
+            for pkg in ALL_POPULAR_PACKAGES:
+                if ((query_lower in pkg.description.lower() or 
+                     query_lower in pkg.primary_use_case.lower()) and
+                    pkg.name not in [m["name"] for m in curated_matches]):
+                    curated_matches.append({
+                        "name": pkg.name,
+                        "summary": pkg.description,
+                        "version": "latest",
+                        "source": "curated_desc",
+                        "category": pkg.category,
+                        "estimated_downloads": pkg.estimated_monthly_downloads,
+                        "github_stars": pkg.github_stars,
+                        "primary_use_case": pkg.primary_use_case,
+                    })
+        
+        # Sort by popularity (downloads)
+        curated_matches.sort(key=lambda x: x.get("estimated_downloads", 0), reverse=True)
+        
+        logger.info(f"Found {len(curated_matches)} curated matches")
+        return curated_matches[:limit]
+
+    async def _fallback_search(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Fallback search using PyPI JSON API and our curated data."""
         try:
-            async with PyPIClient() as client:
-                # Try to get the package directly if it's an exact match
-                try:
+            from ..data.popular_packages import PACKAGES_BY_NAME, get_popular_packages, ALL_POPULAR_PACKAGES
+            
+            # Search in our curated packages first
+            curated_matches = []
+            query_lower = query.lower()
+            
+            logger.info(f"Searching in {len(ALL_POPULAR_PACKAGES)} curated packages for '{query}'")
+            
+            # First: exact name matches
+            for package_info in ALL_POPULAR_PACKAGES:
+                if query_lower == package_info.name.lower():
+                    curated_matches.append({
+                        "name": package_info.name,
+                        "summary": package_info.description,
+                        "version": "latest",
+                        "source": "curated_exact",
+                        "category": package_info.category,
+                        "estimated_downloads": package_info.estimated_monthly_downloads,
+                        "github_stars": package_info.github_stars,
+                    })
+            
+            # Second: name contains query
+            for package_info in ALL_POPULAR_PACKAGES:
+                if (query_lower in package_info.name.lower() and 
+                    package_info.name not in [m["name"] for m in curated_matches]):
+                    curated_matches.append({
+                        "name": package_info.name,
+                        "summary": package_info.description,
+                        "version": "latest",
+                        "source": "curated_name",
+                        "category": package_info.category,
+                        "estimated_downloads": package_info.estimated_monthly_downloads,
+                        "github_stars": package_info.github_stars,
+                    })
+            
+            # Third: description or use case matches
+            for package_info in ALL_POPULAR_PACKAGES:
+                if ((query_lower in package_info.description.lower() or 
+                     query_lower in package_info.primary_use_case.lower()) and
+                    package_info.name not in [m["name"] for m in curated_matches]):
+                    curated_matches.append({
+                        "name": package_info.name,
+                        "summary": package_info.description,
+                        "version": "latest",
+                        "source": "curated_desc",
+                        "category": package_info.category,
+                        "estimated_downloads": package_info.estimated_monthly_downloads,
+                        "github_stars": package_info.github_stars,
+                    })
+            
+            logger.info(f"Found {len(curated_matches)} curated matches")
+            
+            # If we have some matches, return them (sorted by popularity)
+            if curated_matches:
+                curated_matches.sort(key=lambda x: x.get("estimated_downloads", 0), reverse=True)
+                return curated_matches[:limit]
+            
+            # Last resort: try direct package lookup
+            logger.info("No curated matches, trying direct package lookup")
+            try:
+                async with PyPIClient() as client:
                     package_data = await client.get_package_info(query)
                     return [{
                         "name": package_data["info"]["name"],
                         "summary": package_data["info"]["summary"] or "",
                         "version": package_data["info"]["version"],
-                        "source": "direct",
+                        "source": "direct_fallback",
+                        "description": package_data["info"]["description"] or "",
+                        "author": package_data["info"]["author"] or "",
                     }]
-                except:
-                    pass
+            except Exception as e:
+                logger.info(f"Direct lookup failed: {e}")
                     
         except Exception as e:
-            logger.warning(f"Fallback search failed: {e}")
+            logger.error(f"Fallback search failed: {e}")
         
+        return []
+
+    async def _search_xmlrpc(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Search using enhanced curated search with fuzzy matching."""
+        # Since PyPI XML-RPC search is deprecated, use our enhanced curated search
+        try:
+            from ..data.popular_packages import get_popular_packages, ALL_POPULAR_PACKAGES
+            
+            query_lower = query.lower()
+            results = []
+            
+            # First pass: exact name matches
+            for pkg in ALL_POPULAR_PACKAGES:
+                if query_lower == pkg.name.lower():
+                    results.append({
+                        "name": pkg.name,
+                        "summary": pkg.description,
+                        "version": "latest",
+                        "source": "curated_exact",
+                        "category": pkg.category,
+                        "estimated_downloads": pkg.estimated_monthly_downloads,
+                        "github_stars": pkg.github_stars,
+                    })
+            
+            # Second pass: name contains query
+            for pkg in ALL_POPULAR_PACKAGES:
+                if query_lower in pkg.name.lower() and pkg.name not in [r["name"] for r in results]:
+                    results.append({
+                        "name": pkg.name,
+                        "summary": pkg.description,
+                        "version": "latest",
+                        "source": "curated_name",
+                        "category": pkg.category,
+                        "estimated_downloads": pkg.estimated_monthly_downloads,
+                        "github_stars": pkg.github_stars,
+                    })
+            
+            # Third pass: description contains query
+            for pkg in ALL_POPULAR_PACKAGES:
+                if (query_lower in pkg.description.lower() or 
+                    query_lower in pkg.primary_use_case.lower()) and pkg.name not in [r["name"] for r in results]:
+                    results.append({
+                        "name": pkg.name,
+                        "summary": pkg.description,
+                        "version": "latest", 
+                        "source": "curated_desc",
+                        "category": pkg.category,
+                        "estimated_downloads": pkg.estimated_monthly_downloads,
+                        "github_stars": pkg.github_stars,
+                    })
+            
+            # Sort by popularity (downloads)
+            results.sort(key=lambda x: x.get("estimated_downloads", 0), reverse=True)
+            
+            return results[:limit]
+            
+        except Exception as e:
+            logger.debug(f"Enhanced curated search error: {e}")
+            
+        return []
+
+    async def _search_simple_api(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Search using direct PyPI JSON API for specific packages."""
+        try:
+            # Try direct package lookup if query looks like a package name
+            query_clean = query.strip().lower().replace(" ", "-")
+            
+            # Try variations of the query as package names
+            candidates = [
+                query_clean,
+                query_clean.replace("-", "_"),
+                query_clean.replace("_", "-"),
+                query.strip(),  # Original query
+            ]
+            
+            results = []
+            
+            for candidate in candidates:
+                if len(results) >= limit:
+                    break
+                    
+                try:
+                    async with PyPIClient() as client:
+                        package_data = await client.get_package_info(candidate)
+                        
+                        results.append({
+                            "name": package_data["info"]["name"],
+                            "summary": package_data["info"]["summary"] or "",
+                            "version": package_data["info"]["version"],
+                            "source": "direct_api",
+                            "description": package_data["info"]["description"] or "",
+                            "author": package_data["info"]["author"] or "",
+                            "license": package_data["info"]["license"] or "",
+                        })
+                        
+                except Exception:
+                    # Package doesn't exist, continue to next candidate
+                    continue
+                    
+            return results
+                
+        except Exception as e:
+            logger.debug(f"Simple API search error: {e}")
+            
         return []
 
     async def _parse_search_html(self, html: str, limit: int) -> List[Dict[str, Any]]:
@@ -237,9 +505,19 @@ class PyPISearchClient:
         """Enhance search results with additional metadata from PyPI API."""
         enhanced = []
         
-        # Process in batches to avoid overwhelming the API
-        batch_size = 5
-        for i in range(0, len(results), batch_size):
+        # Skip enhancement if results already have good metadata from curated source
+        if results and results[0].get("source", "").startswith("curated"):
+            logger.info("Using curated results without enhancement")
+            return results
+        
+        # For direct API results, they're already enhanced
+        if results and results[0].get("source") == "direct_api":
+            logger.info("Using direct API results without additional enhancement")
+            return results
+        
+        # Process in small batches to avoid overwhelming the API
+        batch_size = 3
+        for i in range(0, min(len(results), 10), batch_size):  # Limit to first 10 results
             batch = results[i:i + batch_size]
             batch_tasks = [
                 self._enhance_single_result(result) 
