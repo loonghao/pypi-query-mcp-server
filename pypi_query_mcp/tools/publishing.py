@@ -1,14 +1,11 @@
 """PyPI account and publishing tools for package management and distribution."""
 
 import asyncio
-import base64
-import json
 import logging
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import urljoin
 
 import httpx
@@ -20,9 +17,12 @@ from ..core.exceptions import (
     PyPIAuthenticationError,
     PyPIPermissionError,
     PyPIServerError,
-    PyPIUploadError,
     RateLimitError,
 )
+from ..core.rate_limiter import get_rate_limited_client
+from ..security.validation import SecurityValidationError, secure_validate_file_path
+
+logger = logging.getLogger(__name__)
 
 
 class PyPIPublishingClient:
@@ -30,7 +30,7 @@ class PyPIPublishingClient:
 
     def __init__(
         self,
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         test_pypi: bool = False,
         timeout: float = 60.0,
         max_retries: int = 3,
@@ -45,7 +45,7 @@ class PyPIPublishingClient:
             max_retries: Maximum number of retry attempts
             retry_delay: Delay between retries in seconds
         """
-        self.api_token = api_token or os.getenv("PYPI_API_TOKEN")
+        self.api_token = api_token
         self.test_pypi = test_pypi
         self.timeout = timeout
         self.max_retries = max_retries
@@ -66,16 +66,15 @@ class PyPIPublishingClient:
             "User-Agent": "pypi-query-mcp-server/0.1.0",
             "Accept": "application/json",
         }
-        
+
         if self.api_token:
             # Use token authentication
             headers["Authorization"] = f"token {self.api_token}"
 
-        self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout),
-            headers=headers,
-            follow_redirects=True,
-        )
+        # Use rate-limited HTTP client for PyPI API
+        self._client = get_rate_limited_client("pypi")
+        # Store headers for manual application since rate-limited client handles its own headers
+        self._headers = headers
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -87,7 +86,7 @@ class PyPIPublishingClient:
 
     async def close(self):
         """Close the HTTP client."""
-        await self._client.aclose()
+        await self._client.close()
 
     def _validate_package_name(self, package_name: str) -> str:
         """Validate and normalize package name."""
@@ -101,9 +100,9 @@ class PyPIPublishingClient:
         return package_name.strip()
 
     async def _make_request(
-        self, 
-        method: str, 
-        url: str, 
+        self,
+        method: str,
+        url: str,
         **kwargs
     ) -> httpx.Response:
         """Make HTTP request with retry logic."""
@@ -112,8 +111,13 @@ class PyPIPublishingClient:
         for attempt in range(self.max_retries + 1):
             try:
                 logger.debug(f"Making {method} request to {url} (attempt {attempt + 1})")
-                response = await self._client.request(method, url, **kwargs)
-                
+                # Merge headers with any provided in kwargs
+                merged_headers = {**self._headers}
+                if 'headers' in kwargs:
+                    merged_headers.update(kwargs.pop('headers'))
+
+                response = await self._client.request(method, url, headers=merged_headers, **kwargs)
+
                 # Handle authentication errors
                 if response.status_code == 401:
                     raise PyPIAuthenticationError(
@@ -129,7 +133,7 @@ class PyPIPublishingClient:
                     retry_after = response.headers.get("Retry-After")
                     retry_after_int = int(retry_after) if retry_after else None
                     raise RateLimitError(retry_after_int)
-                
+
                 return response
 
             except httpx.TimeoutException as e:
@@ -151,18 +155,18 @@ class PyPIPublishingClient:
 
 
 async def upload_package_to_pypi(
-    distribution_paths: List[str],
-    api_token: Optional[str] = None,
+    distribution_paths: list[str],
+    api_token: str | None = None,
     test_pypi: bool = False,
     skip_existing: bool = True,
     verify_uploads: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Upload package distributions to PyPI or TestPyPI.
     
     Args:
         distribution_paths: List of paths to distribution files (.whl, .tar.gz)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to upload to TestPyPI instead of production PyPI
         skip_existing: Skip files that already exist on PyPI
         verify_uploads: Verify uploads after completion
@@ -176,29 +180,46 @@ async def upload_package_to_pypi(
         NetworkError: For network-related errors
     """
     logger.info(f"Starting upload of {len(distribution_paths)} distributions to {'TestPyPI' if test_pypi else 'PyPI'}")
-    
+
     if not distribution_paths:
         raise ValueError("No distribution paths provided")
-    
+
     # Validate all distribution files exist
     missing_files = []
     valid_files = []
-    
+
     for path_str in distribution_paths:
+        # Validate file path for security
+        try:
+            validation_result = secure_validate_file_path(path_str)
+            if not validation_result["valid"] or not validation_result["secure"]:
+                security_issues = validation_result.get("security_warnings", []) + validation_result.get("issues", [])
+                logger.error(f"Distribution file path security validation failed for {path_str}: {'; '.join(security_issues)}")
+                missing_files.append(f"{path_str} (security validation failed)")
+                continue
+        except SecurityValidationError as e:
+            logger.error(f"Distribution file path validation error for {path_str}: {e}")
+            missing_files.append(f"{path_str} (validation error)")
+            continue
+        except Exception as e:
+            logger.error(f"Unexpected error validating path {path_str}: {e}")
+            missing_files.append(f"{path_str} (unexpected error)")
+            continue
+
         path = Path(path_str)
         if not path.exists():
             missing_files.append(str(path))
-        elif not path.suffix.lower() in ['.whl', '.tar.gz']:
+        elif path.suffix.lower() not in ['.whl', '.tar.gz']:
             logger.warning(f"Skipping non-distribution file: {path}")
         else:
             valid_files.append(path)
-    
+
     if missing_files:
         raise FileNotFoundError(f"Distribution files not found: {missing_files}")
-    
+
     if not valid_files:
         raise ValueError("No valid distribution files found")
-    
+
     results = {
         "upload_results": [],
         "total_files": len(valid_files),
@@ -208,12 +229,12 @@ async def upload_package_to_pypi(
         "target_repository": "TestPyPI" if test_pypi else "PyPI",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    
+
     async with PyPIPublishingClient(
-        api_token=api_token, 
+        api_token=api_token,
         test_pypi=test_pypi
     ) as client:
-        
+
         # Verify authentication
         try:
             auth_result = await check_pypi_credentials(api_token, test_pypi)
@@ -222,7 +243,7 @@ async def upload_package_to_pypi(
         except Exception as e:
             logger.error(f"Authentication check failed: {e}")
             raise PyPIAuthenticationError(f"Authentication failed: {e}")
-        
+
         # Upload each distribution file
         for dist_file in valid_files:
             file_result = {
@@ -233,24 +254,24 @@ async def upload_package_to_pypi(
                 "error": None,
                 "upload_time": None,
             }
-            
+
             try:
                 logger.info(f"Uploading {dist_file.name}...")
-                
+
                 # Prepare upload data
                 with open(dist_file, 'rb') as f:
                     file_content = f.read()
-                
+
                 # Create multipart form data for upload
                 files = {
                     'content': (dist_file.name, file_content, 'application/octet-stream')
                 }
-                
+
                 data = {
                     ':action': 'file_upload',
                     'protocol_version': '1',
                 }
-                
+
                 # Make upload request
                 upload_url = urljoin(client.upload_url, "")
                 response = await client._make_request(
@@ -259,19 +280,19 @@ async def upload_package_to_pypi(
                     files=files,
                     data=data,
                 )
-                
+
                 if response.status_code == 200:
                     file_result["status"] = "success"
                     file_result["upload_time"] = datetime.now(timezone.utc).isoformat()
                     results["successful_uploads"] += 1
                     logger.info(f"Successfully uploaded {dist_file.name}")
-                    
+
                 elif response.status_code == 409 and skip_existing:
                     file_result["status"] = "skipped"
                     file_result["error"] = "File already exists"
                     results["skipped_uploads"] += 1
                     logger.info(f"Skipped {dist_file.name} (already exists)")
-                    
+
                 else:
                     error_msg = f"Upload failed with status {response.status_code}"
                     try:
@@ -280,25 +301,25 @@ async def upload_package_to_pypi(
                             error_msg = error_data["message"]
                     except:
                         error_msg = response.text or error_msg
-                    
+
                     file_result["status"] = "failed"
                     file_result["error"] = error_msg
                     results["failed_uploads"] += 1
                     logger.error(f"Failed to upload {dist_file.name}: {error_msg}")
-                
+
             except Exception as e:
                 file_result["status"] = "failed"
                 file_result["error"] = str(e)
                 results["failed_uploads"] += 1
                 logger.error(f"Exception during upload of {dist_file.name}: {e}")
-            
+
             results["upload_results"].append(file_result)
-        
+
         # Verify uploads if requested
         if verify_uploads and results["successful_uploads"] > 0:
             logger.info("Verifying uploads...")
             verification_results = []
-            
+
             for file_result in results["upload_results"]:
                 if file_result["status"] == "success":
                     # Extract package name from filename
@@ -319,12 +340,12 @@ async def upload_package_to_pypi(
                             continue
                     else:
                         continue
-                    
+
                     try:
                         # Check if package is now available
                         verify_url = f"{client.api_url}/{package_name}/json"
                         verify_response = await client._make_request("GET", verify_url)
-                        
+
                         if verify_response.status_code == 200:
                             verification_results.append({
                                 "filename": filename,
@@ -345,9 +366,9 @@ async def upload_package_to_pypi(
                             "verified": False,
                             "error": str(e),
                         })
-            
+
             results["verification_results"] = verification_results
-    
+
     # Generate summary
     results["summary"] = {
         "total_processed": len(valid_files),
@@ -356,20 +377,20 @@ async def upload_package_to_pypi(
         "skipped": results["skipped_uploads"],
         "success_rate": results["successful_uploads"] / len(valid_files) * 100 if valid_files else 0,
     }
-    
+
     logger.info(f"Upload completed: {results['summary']}")
     return results
 
 
 async def check_pypi_credentials(
-    api_token: Optional[str] = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Validate PyPI API token and credentials.
     
     Args:
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to check against TestPyPI instead of production PyPI
         
     Returns:
@@ -380,8 +401,8 @@ async def check_pypi_credentials(
         NetworkError: For network-related errors
     """
     logger.info(f"Checking {'TestPyPI' if test_pypi else 'PyPI'} credentials")
-    
-    token = api_token or os.getenv("PYPI_API_TOKEN")
+
+    token = api_token
     if not token:
         return {
             "valid": False,
@@ -390,7 +411,7 @@ async def check_pypi_credentials(
             "test_pypi": test_pypi,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    
+
     # Validate token format
     if not token.startswith("pypi-"):
         return {
@@ -399,7 +420,7 @@ async def check_pypi_credentials(
             "test_pypi": test_pypi,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    
+
     async with PyPIPublishingClient(api_token=token, test_pypi=test_pypi) as client:
         try:
             # Try to access user account information
@@ -408,10 +429,10 @@ async def check_pypi_credentials(
                 test_url = "https://test.pypi.org/legacy/"
             else:
                 test_url = "https://upload.pypi.org/legacy/"
-            
+
             # Make a simple authenticated request
             response = await client._make_request("GET", test_url)
-            
+
             if response.status_code in [200, 405]:  # 405 is expected for GET on upload endpoint
                 return {
                     "valid": True,
@@ -444,7 +465,7 @@ async def check_pypi_credentials(
                     "test_pypi": test_pypi,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                
+
         except PyPIAuthenticationError as e:
             return {
                 "valid": False,
@@ -465,16 +486,16 @@ async def check_pypi_credentials(
 
 async def get_pypi_upload_history(
     package_name: str,
-    api_token: Optional[str] = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     limit: int = 50,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get upload history for a PyPI package.
     
     Args:
         package_name: Name of the package to get upload history for
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to check TestPyPI instead of production PyPI
         limit: Maximum number of uploads to return
         
@@ -489,26 +510,26 @@ async def get_pypi_upload_history(
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     logger.info(f"Getting upload history for {package_name} on {'TestPyPI' if test_pypi else 'PyPI'}")
-    
+
     async with PyPIPublishingClient(api_token=api_token, test_pypi=test_pypi) as client:
         try:
             # Get package information
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
-                raise PyPIServerError(response.status_code, f"Failed to fetch package data")
-            
+                raise PyPIServerError(response.status_code, "Failed to fetch package data")
+
             package_data = response.json()
-            
+
             # Extract upload history from releases
             upload_history = []
             releases = package_data.get("releases", {})
-            
+
             for version, files in releases.items():
                 for file_info in files:
                     upload_history.append({
@@ -525,33 +546,33 @@ async def get_pypi_upload_history(
                         "yanked": file_info.get("yanked", False),
                         "yanked_reason": file_info.get("yanked_reason", ""),
                     })
-            
+
             # Sort by upload time (newest first)
             upload_history.sort(
                 key=lambda x: x.get("upload_time_iso", x.get("upload_time", "")),
                 reverse=True
             )
-            
+
             # Apply limit
             if limit and limit > 0:
                 upload_history = upload_history[:limit]
-            
+
             # Calculate statistics
             total_uploads = len(upload_history)
             package_types = {}
             total_size = 0
             yanked_count = 0
-            
+
             for upload in upload_history:
                 pkg_type = upload.get("packagetype", "unknown")
                 package_types[pkg_type] = package_types.get(pkg_type, 0) + 1
                 total_size += upload.get("size", 0)
                 if upload.get("yanked", False):
                     yanked_count += 1
-            
+
             # Get latest version info
             info = package_data.get("info", {})
-            
+
             result = {
                 "package_name": package_name,
                 "repository": "TestPyPI" if test_pypi else "PyPI",
@@ -574,10 +595,10 @@ async def get_pypi_upload_history(
                 "test_pypi": test_pypi,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             logger.info(f"Retrieved {total_uploads} upload records for {package_name}")
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError):
             raise
         except Exception as e:
@@ -588,11 +609,11 @@ async def get_pypi_upload_history(
 async def delete_pypi_release(
     package_name: str,
     version: str,
-    api_token: Optional[str] = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     confirm_deletion: bool = False,
     dry_run: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Delete a specific release from PyPI (with safety checks).
     
@@ -602,7 +623,7 @@ async def delete_pypi_release(
     Args:
         package_name: Name of the package
         version: Version to delete
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         confirm_deletion: Explicit confirmation required for actual deletion
         dry_run: If True, only simulate the deletion without actually performing it
@@ -618,21 +639,21 @@ async def delete_pypi_release(
     """
     package_name = package_name.strip()
     version = version.strip()
-    
+
     if not package_name:
         raise InvalidPackageNameError(package_name)
     if not version:
         raise ValueError("Version cannot be empty")
-    
+
     logger.info(f"{'DRY RUN: ' if dry_run else ''}Deleting {package_name}=={version} from {'TestPyPI' if test_pypi else 'PyPI'}")
-    
+
     # Safety checks
     safety_warnings = []
-    
+
     # Check if this is production PyPI
     if not test_pypi:
         safety_warnings.append("PRODUCTION PyPI deletion - this action is irreversible!")
-    
+
     # Check for confirmation
     if not confirm_deletion and not dry_run:
         safety_warnings.append("Explicit confirmation required for deletion")
@@ -646,41 +667,41 @@ async def delete_pypi_release(
             "test_pypi": test_pypi,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    
+
     async with PyPIPublishingClient(api_token=api_token, test_pypi=test_pypi) as client:
         try:
             # First, verify the release exists
             api_url = f"{client.api_url}/{package_name}/{version}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(f"{package_name}=={version}")
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to verify release")
-            
+
             release_data = response.json()
             release_info = release_data.get("info", {})
-            
+
             # Analyze release details
             upload_time = release_info.get("upload_time", "")
             files = release_data.get("urls", [])
             file_count = len(files)
-            
+
             # Check upload recency (PyPI typically allows deletion only within hours)
             if upload_time:
                 try:
                     from datetime import datetime
                     upload_dt = datetime.fromisoformat(upload_time.replace('Z', '+00:00'))
                     age_hours = (datetime.now(timezone.utc) - upload_dt).total_seconds() / 3600
-                    
+
                     if age_hours > 24:
                         safety_warnings.append(f"Release is {age_hours:.1f} hours old - deletion may not be permitted")
                 except:
                     safety_warnings.append("Could not determine upload time")
-            
+
             if file_count > 1:
                 safety_warnings.append(f"Release contains {file_count} distribution files")
-            
+
             result = {
                 "package_name": package_name,
                 "version": version,
@@ -696,7 +717,7 @@ async def delete_pypi_release(
                 "test_pypi": test_pypi,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             if dry_run:
                 result.update({
                     "success": True,
@@ -705,14 +726,14 @@ async def delete_pypi_release(
                 })
                 logger.info(f"DRY RUN: {package_name}=={version} deletion simulation completed")
                 return result
-            
+
             # Attempt actual deletion
             # Note: PyPI's deletion API is very restricted and may not be available
             delete_url = f"{client.api_url}/{package_name}/{version}/"
-            
+
             try:
                 delete_response = await client._make_request("DELETE", delete_url)
-                
+
                 if delete_response.status_code in [200, 204]:
                     result.update({
                         "success": True,
@@ -720,21 +741,21 @@ async def delete_pypi_release(
                         "message": f"Successfully deleted {package_name}=={version}",
                     })
                     logger.info(f"Successfully deleted {package_name}=={version}")
-                    
+
                 elif delete_response.status_code == 403:
                     result.update({
                         "success": False,
                         "action": "permission_denied",
                         "error": "Deletion not permitted - insufficient permissions or time window expired",
                     })
-                    
+
                 elif delete_response.status_code == 405:
                     result.update({
                         "success": False,
                         "action": "not_supported",
                         "error": "Deletion is not supported or available for this package/version",
                     })
-                    
+
                 else:
                     error_msg = f"Deletion failed with status {delete_response.status_code}"
                     try:
@@ -743,14 +764,14 @@ async def delete_pypi_release(
                             error_msg = error_data["message"]
                     except:
                         pass
-                    
+
                     result.update({
                         "success": False,
                         "action": "failed",
                         "error": error_msg,
                         "status_code": delete_response.status_code,
                     })
-                    
+
             except PyPIPermissionError as e:
                 result.update({
                     "success": False,
@@ -763,9 +784,9 @@ async def delete_pypi_release(
                     "action": "error",
                     "error": f"Deletion attempt failed: {e}",
                 })
-            
+
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError):
             raise
         except Exception as e:
@@ -776,10 +797,10 @@ async def delete_pypi_release(
 async def manage_pypi_maintainers(
     package_name: str,
     action: str,
-    username: Optional[str] = None,
-    api_token: Optional[str] = None,
+    username: str | None = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manage package maintainers (add/remove/list).
     
@@ -789,7 +810,7 @@ async def manage_pypi_maintainers(
         package_name: Name of the package
         action: Action to perform ('list', 'add', 'remove')
         username: Username to add/remove (required for add/remove actions)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -804,33 +825,33 @@ async def manage_pypi_maintainers(
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     action = action.lower().strip()
     if action not in ['list', 'add', 'remove']:
         raise ValueError(f"Invalid action '{action}'. Must be 'list', 'add', or 'remove'")
-    
+
     if action in ['add', 'remove'] and not username:
         raise ValueError(f"Username required for '{action}' action")
-    
+
     logger.info(f"Managing maintainers for {package_name} on {'TestPyPI' if test_pypi else 'PyPI'}: {action}")
-    
+
     async with PyPIPublishingClient(api_token=api_token, test_pypi=test_pypi) as client:
         try:
             # First verify package exists
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to fetch package data")
-            
+
             package_data = response.json()
             info = package_data.get("info", {})
-            
+
             # Extract current maintainer information
             current_maintainers = []
-            
+
             # Get author information
             author = info.get("author", "")
             author_email = info.get("author_email", "")
@@ -840,17 +861,17 @@ async def manage_pypi_maintainers(
                     "name": author,
                     "email": author_email,
                 })
-            
+
             # Get maintainer information
             maintainer = info.get("maintainer", "")
             maintainer_email = info.get("maintainer_email", "")
             if maintainer:
                 current_maintainers.append({
-                    "type": "maintainer", 
+                    "type": "maintainer",
                     "name": maintainer,
                     "email": maintainer_email,
                 })
-            
+
             result = {
                 "package_name": package_name,
                 "action": action,
@@ -858,7 +879,7 @@ async def manage_pypi_maintainers(
                 "test_pypi": test_pypi,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             if action == "list":
                 result.update({
                     "success": True,
@@ -871,10 +892,10 @@ async def manage_pypi_maintainers(
                 })
                 logger.info(f"Listed {len(current_maintainers)} maintainers for {package_name}")
                 return result
-            
+
             # For add/remove actions, we need to use PyPI's management interface
             # Note: This is typically done through the web interface, not API
-            
+
             result.update({
                 "username": username,
                 "success": False,
@@ -890,12 +911,12 @@ async def manage_pypi_maintainers(
                     ],
                 },
             })
-            
+
             # In a real implementation, you might attempt to use undocumented APIs
             # or web scraping, but this is not recommended due to stability concerns
-            
+
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError):
             raise
         except Exception as e:
@@ -904,14 +925,14 @@ async def manage_pypi_maintainers(
 
 
 async def get_pypi_account_info(
-    api_token: Optional[str] = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get PyPI account information, quotas, and limits.
     
     Args:
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -922,24 +943,24 @@ async def get_pypi_account_info(
         NetworkError: For network-related errors
     """
     logger.info(f"Getting account information for {'TestPyPI' if test_pypi else 'PyPI'}")
-    
+
     async with PyPIPublishingClient(api_token=api_token, test_pypi=test_pypi) as client:
         try:
             # Verify credentials first
             cred_result = await check_pypi_credentials(api_token, test_pypi)
             if not cred_result.get("valid", False):
                 raise PyPIAuthenticationError("Invalid credentials")
-            
+
             result = {
                 "repository": "TestPyPI" if test_pypi else "PyPI",
                 "credentials": cred_result,
                 "test_pypi": test_pypi,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             # Note: PyPI doesn't provide a comprehensive account info API
             # Most account information is only available through the web interface
-            
+
             # Try to get basic account information through available endpoints
             account_info = {
                 "api_token_valid": True,
@@ -964,16 +985,16 @@ async def get_pypi_account_info(
                     "project_management": "Via web interface",
                 },
             }
-            
+
             # Get user projects if possible (this requires web scraping or undocumented APIs)
             # For now, provide guidance on how to get this information
             account_info["user_projects"] = {
                 "note": "Project list not available via API",
                 "alternative": f"Visit {'https://test.pypi.org' if test_pypi else 'https://pypi.org'}/manage/projects/ to see your projects",
             }
-            
+
             result["account_info"] = account_info
-            
+
             # Add recommendations
             result["recommendations"] = [
                 "Enable two-factor authentication for enhanced security",
@@ -982,7 +1003,7 @@ async def get_pypi_account_info(
                 "Regularly review and rotate API tokens",
                 "Monitor upload quotas and limits through the web interface",
             ]
-            
+
             # Add useful links
             result["useful_links"] = {
                 "account_settings": f"{'https://test.pypi.org' if test_pypi else 'https://pypi.org'}/manage/account/",
@@ -991,10 +1012,10 @@ async def get_pypi_account_info(
                 "trusted_publishing": f"{'https://test.pypi.org' if test_pypi else 'https://pypi.org'}/manage/account/publishing/",
                 "help": "https://pypi.org/help/",
             }
-            
+
             logger.info("Successfully retrieved account information")
             return result
-            
+
         except PyPIAuthenticationError:
             raise
         except Exception as e:

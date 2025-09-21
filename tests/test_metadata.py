@@ -1,20 +1,15 @@
 """Tests for PyPI metadata management tools."""
 
-import asyncio
-import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import httpx
 import pytest
 
 from pypi_query_mcp.core.exceptions import (
     InvalidPackageNameError,
-    NetworkError,
     PackageNotFoundError,
     PyPIAuthenticationError,
     PyPIPermissionError,
-    PyPIServerError,
 )
 from pypi_query_mcp.tools.metadata import (
     PyPIMetadataClient,
@@ -31,7 +26,7 @@ class TestPyPIMetadataClient:
     def test_init_default(self):
         """Test client initialization with default values."""
         client = PyPIMetadataClient()
-        
+
         assert client.api_token is None
         assert client.test_pypi is False
         assert client.timeout == 60.0
@@ -43,7 +38,7 @@ class TestPyPIMetadataClient:
     def test_init_test_pypi(self):
         """Test client initialization for TestPyPI."""
         client = PyPIMetadataClient(test_pypi=True)
-        
+
         assert client.test_pypi is True
         assert "test.pypi.org" in client.api_url
         assert "test.pypi.org" in client.manage_url
@@ -52,7 +47,7 @@ class TestPyPIMetadataClient:
         """Test client initialization with API token."""
         token = "pypi-test-token"
         client = PyPIMetadataClient(api_token=token)
-        
+
         assert client.api_token == token
         assert "Authorization" in client._client.headers
         assert client._client.headers["Authorization"] == f"token {token}"
@@ -60,7 +55,7 @@ class TestPyPIMetadataClient:
     def test_validate_package_name_valid(self):
         """Test package name validation with valid names."""
         client = PyPIMetadataClient()
-        
+
         valid_names = [
             "requests",
             "django-rest-framework",
@@ -71,7 +66,7 @@ class TestPyPIMetadataClient:
             "a1",
             "package-1.0",
         ]
-        
+
         for name in valid_names:
             result = client._validate_package_name(name)
             assert result == name.strip()
@@ -79,7 +74,7 @@ class TestPyPIMetadataClient:
     def test_validate_package_name_invalid(self):
         """Test package name validation with invalid names."""
         client = PyPIMetadataClient()
-        
+
         invalid_names = [
             "",
             "   ",
@@ -90,7 +85,7 @@ class TestPyPIMetadataClient:
             "in..valid",
             "in--valid",
         ]
-        
+
         for name in invalid_names:
             with pytest.raises(InvalidPackageNameError):
                 client._validate_package_name(name)
@@ -102,10 +97,10 @@ class TestPyPIMetadataClient:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_request.return_value = mock_response
-            
+
             client = PyPIMetadataClient()
             response = await client._make_request("GET", "https://example.com")
-            
+
             assert response == mock_response
             mock_request.assert_called_once_with("GET", "https://example.com")
 
@@ -116,9 +111,9 @@ class TestPyPIMetadataClient:
             mock_response = Mock()
             mock_response.status_code = 401
             mock_request.return_value = mock_response
-            
+
             client = PyPIMetadataClient()
-            
+
             with pytest.raises(PyPIAuthenticationError):
                 await client._make_request("GET", "https://example.com")
 
@@ -136,7 +131,7 @@ class TestPyPIMetadataClient:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_request.return_value = mock_response
-            
+
             client = PyPIMetadataClient(api_token="test-token")
             result = await client._verify_package_ownership("test-package")
             assert result is True
@@ -172,14 +167,14 @@ class TestUpdatePackageMetadata:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await update_package_metadata(
                 package_name="test-package",
                 description="New description",
                 keywords=["test", "python", "new"],
                 dry_run=True,
             )
-            
+
             assert result["dry_run"] is True
             assert result["package_name"] == "test-package"
             assert "metadata_updates" in result
@@ -202,7 +197,7 @@ class TestUpdatePackageMetadata:
             mock_response = Mock()
             mock_response.status_code = 404
             mock_request.return_value = mock_response
-            
+
             with pytest.raises(PackageNotFoundError):
                 await update_package_metadata(
                     package_name="non-existent-package",
@@ -217,7 +212,7 @@ class TestUpdatePackageMetadata:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             # Test description too long
             long_description = "x" * 3000
             result = await update_package_metadata(
@@ -225,7 +220,7 @@ class TestUpdatePackageMetadata:
                 description=long_description,
                 dry_run=True,
             )
-            
+
             assert len(result["validation_errors"]) > 0
             assert any("Description exceeds" in error for error in result["validation_errors"])
 
@@ -237,14 +232,14 @@ class TestUpdatePackageMetadata:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             # Test invalid keyword type
             result = await update_package_metadata(
                 package_name="test-package",
                 keywords="not-a-list",  # Should be a list
                 dry_run=True,
             )
-            
+
             assert len(result["validation_errors"]) > 0
             assert any("must be a list" in error for error in result["validation_errors"])
 
@@ -276,7 +271,7 @@ class TestManagePackageUrls:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_package_urls(
                 package_name="test-package",
                 homepage="https://new-homepage.com",
@@ -284,7 +279,7 @@ class TestManagePackageUrls:
                 validate_urls=False,  # Skip URL validation for test
                 dry_run=True,
             )
-            
+
             assert result["dry_run"] is True
             assert result["package_name"] == "test-package"
             assert "url_updates" in result
@@ -298,13 +293,13 @@ class TestManagePackageUrls:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_package_urls(
                 package_name="test-package",
                 homepage="not-a-url",
                 dry_run=True,
             )
-            
+
             assert len(result["validation_errors"]) > 0
             assert any("Invalid" in error and "URL format" in error for error in result["validation_errors"])
 
@@ -316,13 +311,13 @@ class TestManagePackageUrls:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
-            
+
             # Mock URL validation request
             mock_head_response = Mock()
             mock_head_response.status_code = 200
-            
+
             mock_request.side_effect = [mock_response, mock_head_response]
-            
+
             with patch.object(httpx.AsyncClient, 'head', return_value=mock_head_response):
                 result = await manage_package_urls(
                     package_name="test-package",
@@ -330,7 +325,7 @@ class TestManagePackageUrls:
                     validate_urls=True,
                     dry_run=True,
                 )
-            
+
             assert "validation_results" in result
             assert "homepage" in result["validation_results"]
             assert result["validation_results"]["homepage"]["accessible"] is True
@@ -343,7 +338,7 @@ class TestManagePackageUrls:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_package_urls(
                 package_name="test-package",
                 homepage="https://secure-url.com",  # HTTPS URL
@@ -351,7 +346,7 @@ class TestManagePackageUrls:
                 validate_urls=False,
                 dry_run=True,
             )
-            
+
             assert "url_quality_score" in result
             assert isinstance(result["url_quality_score"], (int, float))
 
@@ -379,14 +374,14 @@ class TestSetPackageVisibility:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await set_package_visibility(
                     package_name="test-package",
                     visibility="public",
                     api_token="test-token",
                 )
-            
+
             assert result["package_name"] == "test-package"
             assert result["requested_visibility"] == "public"
             assert result["success"] is True
@@ -399,13 +394,13 @@ class TestSetPackageVisibility:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await set_package_visibility(
                 package_name="test-package",
                 visibility="private",
                 confirm_action=False,
             )
-            
+
             assert result["success"] is False
             assert result["confirmation_required"] is True
 
@@ -426,14 +421,14 @@ class TestSetPackageVisibility:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await set_package_visibility(
                     package_name="test-package",
                     visibility="public",
                     api_token="test-token",
                 )
-            
+
             assert "organization_indicators" in result
             # Should detect GitHub organization from home_page URL
             assert len(result["organization_indicators"]) > 0
@@ -466,12 +461,12 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_package_keywords(
                 package_name="test-package",
                 action="list",
             )
-            
+
             assert result["action"] == "list"
             assert result["current_keywords"] == ["python", "test", "package"]
             assert "keyword_analysis" in result
@@ -485,7 +480,7 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await manage_package_keywords(
                     package_name="test-package",
@@ -494,7 +489,7 @@ class TestManagePackageKeywords:
                     api_token="test-token",
                     dry_run=True,
                 )
-            
+
             assert result["action"] == "add"
             assert "automation" in result["keywords_after"]
             assert "cli" in result["keywords_after"]
@@ -508,7 +503,7 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await manage_package_keywords(
                     package_name="test-package",
@@ -517,7 +512,7 @@ class TestManagePackageKeywords:
                     api_token="test-token",
                     dry_run=True,
                 )
-            
+
             assert result["action"] == "remove"
             assert "test" not in result["keywords_after"]
             assert result["changes_detected"] is True
@@ -530,7 +525,7 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await manage_package_keywords(
                     package_name="test-package",
@@ -539,7 +534,7 @@ class TestManagePackageKeywords:
                     api_token="test-token",
                     dry_run=True,
                 )
-            
+
             assert result["action"] == "replace"
             assert result["keywords_after"] == ["new", "keywords", "only"]
             assert result["changes_detected"] is True
@@ -561,7 +556,7 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 result = await manage_package_keywords(
                     package_name="test-package",
@@ -570,7 +565,7 @@ class TestManagePackageKeywords:
                     api_token="test-token",
                     dry_run=True,
                 )
-            
+
             assert len(result["validation_errors"]) > 0
             assert any("too long" in error.lower() for error in result["validation_errors"])
             assert any("invalid" in error.lower() for error in result["validation_errors"])
@@ -583,15 +578,15 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_package_keywords(
                 package_name="test-package",
                 action="list",
             )
-            
+
             assert "keyword_analysis" in result
             assert "keyword_quality" in result["keyword_analysis"]
-            
+
             # Check that each keyword has quality metrics
             for keyword in result["current_keywords"]:
                 assert keyword in result["keyword_analysis"]["keyword_quality"]
@@ -618,11 +613,11 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 # Generate 25 keywords (more than the 20 limit)
                 too_many_keywords = [f"keyword{i}" for i in range(25)]
-                
+
                 result = await manage_package_keywords(
                     package_name="test-package",
                     action="replace",
@@ -630,7 +625,7 @@ class TestManagePackageKeywords:
                     api_token="test-token",
                     dry_run=True,
                 )
-            
+
             assert len(result["validation_errors"]) > 0
             assert any("Too many keywords" in error for error in result["validation_errors"])
             # Should be truncated to 20
@@ -644,7 +639,7 @@ class TestManagePackageKeywords:
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=False):
                 with pytest.raises(PyPIPermissionError):
                     await manage_package_keywords(
@@ -674,13 +669,13 @@ class TestMetadataIntegration:
                 "project_urls": {},
             }
         }
-        
+
         with patch.object(PyPIMetadataClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = package_data
             mock_request.return_value = mock_response
-            
+
             with patch.object(PyPIMetadataClient, '_verify_package_ownership', return_value=True):
                 # Test metadata update
                 metadata_result = await update_package_metadata(
@@ -691,7 +686,7 @@ class TestMetadataIntegration:
                     api_token="test-token",
                     dry_run=True,
                 )
-                
+
                 # Test URL management
                 url_result = await manage_package_urls(
                     package_name="test-package",
@@ -701,7 +696,7 @@ class TestMetadataIntegration:
                     validate_urls=False,
                     dry_run=True,
                 )
-                
+
                 # Test keyword management
                 keyword_result = await manage_package_keywords(
                     package_name="test-package",
@@ -710,12 +705,12 @@ class TestMetadataIntegration:
                     api_token="test-token",
                     dry_run=True,
                 )
-                
+
                 # Verify all operations completed successfully
                 assert metadata_result["dry_run"] is True
-                assert url_result["dry_run"] is True  
+                assert url_result["dry_run"] is True
                 assert keyword_result["dry_run"] is True
-                
+
                 assert metadata_result["changes_detected"]["description"]["changed"] is True
                 assert url_result["changes_detected"]["homepage"]["changed"] is True
                 assert keyword_result["changes_detected"] is True

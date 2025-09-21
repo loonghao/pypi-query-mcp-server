@@ -4,16 +4,47 @@ This package contains the FastMCP tool implementations that provide
 the user-facing interface for PyPI package operations.
 """
 
+from .analytics import (
+    analyze_pypi_competition,
+    get_pypi_package_analytics,
+    get_pypi_package_rankings,
+    get_pypi_security_alerts,
+)
+from .community import (
+    get_pypi_maintainer_contacts,
+    get_pypi_package_reviews,
+    manage_pypi_package_discussions,
+)
 from .compatibility_check import (
     check_python_compatibility,
     get_compatible_python_versions,
     suggest_python_version_for_packages,
 )
 from .dependency_resolver import resolve_package_dependencies
+from .discovery import (
+    get_pypi_package_recommendations,
+    get_pypi_trending_today,
+    monitor_pypi_new_releases,
+    search_pypi_by_maintainer,
+)
 from .download_stats import (
     get_package_download_stats,
     get_package_download_trends,
     get_top_packages_by_downloads,
+)
+from .health_tools import (
+    assess_package_health_score,
+    compare_packages_health_scores,
+)
+from .license_tools import (
+    analyze_pypi_package_license,
+    check_bulk_license_compliance,
+)
+from .metadata import (
+    manage_package_keywords,
+    manage_package_urls,
+    set_package_visibility,
+    update_package_metadata,
 )
 from .package_downloader import download_package_with_dependencies
 from .package_query import (
@@ -29,34 +60,9 @@ from .publishing import (
     manage_pypi_maintainers,
     upload_package_to_pypi,
 )
-from .metadata import (
-    manage_package_keywords,
-    manage_package_urls,
-    set_package_visibility,
-    update_package_metadata,
-)
-from .analytics import (
-    analyze_pypi_competition,
-    get_pypi_package_analytics,
-    get_pypi_package_rankings,
-    get_pypi_security_alerts,
-)
-from .discovery import (
-    get_pypi_package_recommendations,
-    get_pypi_trending_today,
-    monitor_pypi_new_releases,
-    search_pypi_by_maintainer,
-)
-from .workflow import (
-    check_pypi_upload_requirements,
-    get_pypi_build_logs,
-    preview_pypi_package_page,
-    validate_pypi_package_name,
-)
-from .community import (
-    get_pypi_package_reviews,
-    manage_pypi_package_discussions,
-    get_pypi_maintainer_contacts,
+from .requirements_tools import (
+    analyze_requirements_file_tool,
+    compare_multiple_requirements_files,
 )
 from .search import (
     find_alternatives,
@@ -68,17 +74,11 @@ from .security_tools import (
     bulk_scan_package_security,
     scan_pypi_package_security,
 )
-from .license_tools import (
-    analyze_pypi_package_license,
-    check_bulk_license_compliance,
-)
-from .health_tools import (
-    assess_package_health_score,
-    compare_packages_health_scores,
-)
-from .requirements_tools import (
-    analyze_requirements_file_tool,
-    compare_multiple_requirements_files,
+from .workflow import (
+    check_pypi_upload_requirements,
+    get_pypi_build_logs,
+    preview_pypi_package_page,
+    validate_pypi_package_name,
 )
 
 __all__ = [

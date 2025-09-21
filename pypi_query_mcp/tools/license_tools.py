@@ -1,19 +1,22 @@
 """License compatibility analysis tools for PyPI packages."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.exceptions import InvalidPackageNameError, NetworkError, SearchError
-from ..tools.license_analyzer import analyze_package_license_compatibility, check_license_compliance_bulk
+from ..tools.license_analyzer import (
+    analyze_package_license_compatibility,
+    check_license_compliance_bulk,
+)
 
 logger = logging.getLogger(__name__)
 
 
 async def analyze_pypi_package_license(
     package_name: str,
-    version: Optional[str] = None,
+    version: str | None = None,
     include_dependencies: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze license compatibility for a PyPI package.
     
@@ -43,19 +46,19 @@ async def analyze_pypi_package_license(
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
-        
+
     logger.info(f"MCP tool: Analyzing license compatibility for package {package_name}")
-    
+
     try:
         result = await analyze_package_license_compatibility(
             package_name=package_name,
             version=version,
             include_dependencies=include_dependencies
         )
-        
+
         logger.info(f"MCP tool: License analysis completed for {package_name} - {result.get('analysis_summary', {}).get('license_conflicts', 0)} conflicts found")
         return result
-        
+
     except (InvalidPackageNameError, NetworkError, SearchError) as e:
         logger.error(f"Error analyzing license for {package_name}: {e}")
         return {
@@ -94,9 +97,9 @@ async def analyze_pypi_package_license(
 
 
 async def check_bulk_license_compliance(
-    package_names: List[str],
-    target_license: Optional[str] = None
-) -> Dict[str, Any]:
+    package_names: list[str],
+    target_license: str | None = None
+) -> dict[str, Any]:
     """
     Check license compliance for multiple PyPI packages.
     
@@ -123,18 +126,18 @@ async def check_bulk_license_compliance(
     """
     if not package_names:
         raise ValueError("Package names list cannot be empty")
-        
+
     logger.info(f"MCP tool: Starting bulk license compliance check for {len(package_names)} packages")
-    
+
     try:
         result = await check_license_compliance_bulk(
             package_names=package_names,
             target_license=target_license
         )
-        
+
         logger.info(f"MCP tool: Bulk license compliance completed - {result.get('summary', {}).get('non_compliant_packages', 0)} non-compliant packages found")
         return result
-        
+
     except (ValueError, NetworkError, SearchError) as e:
         logger.error(f"Error in bulk license compliance check: {e}")
         return {

@@ -1,7 +1,8 @@
 """Tests for PyPI Development Workflow Tools."""
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from pypi_query_mcp.core.exceptions import (
     InvalidPackageNameError,
@@ -38,7 +39,7 @@ class TestValidatePackageNameFormat:
             "a",
             "package-name-123",
         ]
-        
+
         for name in valid_names:
             result = _validate_package_name_format(name)
             assert result["valid"] is True, f"'{name}' should be valid"
@@ -57,7 +58,7 @@ class TestValidatePackageNameFormat:
             "pack@age",  # Invalid character
             "PACKAGE",  # Uppercase (should get recommendation)
         ]
-        
+
         for name in invalid_names:
             result = _validate_package_name_format(name)
             if name == "PACKAGE":
@@ -70,7 +71,7 @@ class TestValidatePackageNameFormat:
     def test_reserved_names(self):
         """Test that reserved names are flagged."""
         reserved_names = ["pip", "setuptools", "wheel", "python"]
-        
+
         for name in reserved_names:
             result = _validate_package_name_format(name)
             assert result["valid"] is False
@@ -84,7 +85,7 @@ class TestValidatePackageNameFormat:
             ("my.-_package", "my-package"),
             ("PACKAGE", "package"),
         ]
-        
+
         for input_name, expected in test_cases:
             result = _validate_package_name_format(input_name)
             assert result["normalized_name"] == expected
@@ -99,9 +100,9 @@ class TestValidatePyPIPackageName:
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             # Mock package not found (available)
             mock_client.return_value.__aenter__.return_value.get_package_info.side_effect = PackageNotFoundError("test-package")
-            
+
             result = await validate_pypi_package_name("test-package")
-            
+
             assert result["package_name"] == "test-package"
             assert result["availability"]["status"] == "available"
             assert result["ready_for_upload"] is True
@@ -117,12 +118,12 @@ class TestValidatePyPIPackageName:
                 "author": "Kenneth Reitz",
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.return_value = mock_package_data
-            
+
             result = await validate_pypi_package_name("requests")
-            
+
             assert result["package_name"] == "requests"
             assert result["availability"]["status"] == "taken"
             assert result["availability"]["existing_package"]["name"] == "requests"
@@ -139,9 +140,9 @@ class TestValidatePyPIPackageName:
         """Test handling of network errors during validation."""
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.side_effect = NetworkError("Connection failed")
-            
+
             result = await validate_pypi_package_name("test-package")
-            
+
             assert result["availability"]["status"] == "unknown"
 
 
@@ -157,7 +158,7 @@ class TestPreviewPyPIPackagePage:
             summary="A test package",
             author="Test Author"
         )
-        
+
         assert result["package_name"] == "my-package"
         assert result["version"] == "1.0.0"
         assert result["preview"]["sections"]["header"]["summary"] == "A test package"
@@ -172,7 +173,7 @@ class TestPreviewPyPIPackagePage:
             "Programming Language :: Python :: 3.8",
             "License :: OSI Approved :: MIT License",
         ]
-        
+
         result = await preview_pypi_package_page(
             package_name="comprehensive-package",
             version="2.1.0",
@@ -184,7 +185,7 @@ class TestPreviewPyPIPackagePage:
             keywords=keywords,
             classifiers=classifiers,
         )
-        
+
         assert result["ready_for_upload"] is True
         assert result["validation"]["completeness_score"]["level"] in ["good", "complete"]
         assert result["seo_analysis"]["discoverability_score"]["level"] in ["good", "excellent"]
@@ -196,7 +197,7 @@ class TestPreviewPyPIPackagePage:
             package_name="minimal-package",
             # Minimal metadata to trigger warnings
         )
-        
+
         assert len(result["warnings"]) > 0
         assert any("Summary is missing" in warning for warning in result["warnings"])
         assert any("description" in warning.lower() for warning in result["warnings"])
@@ -220,10 +221,10 @@ class TestCalculateScores:
             keywords=["testing", "python", "package", "quality", "automation"],
             classifiers=["Development Status :: 4 - Beta", "Programming Language :: Python :: 3.8"]
         )
-        
+
         assert result["score"] >= 70
         assert result["level"] in ["good", "excellent"]
-        
+
         # Poor quality metadata
         result = _calculate_discoverability_score("", "", [], [])
         assert result["score"] == 0
@@ -248,7 +249,7 @@ class TestCalculateScores:
                 "length": 80,
             }
         }
-        
+
         result = _calculate_completeness_score(sections)
         assert result["score"] >= 60
         assert result["level"] in ["good", "complete"]
@@ -266,7 +267,7 @@ class TestCheckPyPIUploadRequirements:
             author="Test Author",
             description="A test package"
         )
-        
+
         assert result["upload_readiness"]["can_upload"] is True
         assert result["validation"]["compliance"]["required_percentage"] == 100.0
 
@@ -277,7 +278,7 @@ class TestCheckPyPIUploadRequirements:
             package_name="test-package",
             # Missing required fields
         )
-        
+
         assert result["upload_readiness"]["can_upload"] is False
         assert len(result["issues"]["errors"]) > 0
 
@@ -289,7 +290,7 @@ class TestCheckPyPIUploadRequirements:
             "Programming Language :: Python :: 3.8",
             "License :: OSI Approved :: MIT License",
         ]
-        
+
         result = await check_pypi_upload_requirements(
             package_name="comprehensive-package",
             version="1.0.0",
@@ -302,7 +303,7 @@ class TestCheckPyPIUploadRequirements:
             classifiers=classifiers,
             requires_python=">=3.8"
         )
-        
+
         assert result["upload_readiness"]["should_upload"] is True
         assert result["validation"]["compliance"]["recommended_percentage"] >= 80.0
 
@@ -347,12 +348,12 @@ class TestGetPyPIBuildLogs:
             },
             "urls": []  # Empty for this test
         }
-        
+
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.return_value = mock_package_data
-            
+
             result = await get_pypi_build_logs("test-package")
-            
+
             assert result["package_name"] == "test-package"
             assert result["build_summary"]["wheel_count"] == 1
             assert result["build_summary"]["source_count"] == 1
@@ -377,12 +378,12 @@ class TestGetPyPIBuildLogs:
             },
             "urls": []
         }
-        
+
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.return_value = mock_package_data
-            
+
             result = await get_pypi_build_logs("source-only")
-            
+
             assert result["build_status"]["has_wheels"] is False
             assert result["build_status"]["has_source"] is True
             assert any("No wheel distributions" in warning for warning in result["issues"]["warnings"])
@@ -392,7 +393,7 @@ class TestGetPyPIBuildLogs:
         """Test build logs for non-existent package."""
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.side_effect = PackageNotFoundError("nonexistent")
-            
+
             with pytest.raises(PackageNotFoundError):
                 await get_pypi_build_logs("nonexistent")
 
@@ -411,7 +412,7 @@ class TestGetPyPIBuildLogs:
                     },
                     {
                         "filename": "multi_platform-1.0.0-py3-none-linux_x86_64.whl",
-                        "packagetype": "bdist_wheel", 
+                        "packagetype": "bdist_wheel",
                         "size": 10000,
                         "python_version": "py3",
                     }
@@ -419,13 +420,13 @@ class TestGetPyPIBuildLogs:
             },
             "urls": []
         }
-        
+
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.return_value = mock_package_data
-            
+
             # Test Windows filtering
             result = await get_pypi_build_logs("multi-platform", platform="windows")
-            
+
             # Should only include Windows wheels
             windows_wheels = [w for w in result["distributions"]["wheels"] if "win" in w.get("platform", "")]
             assert len(windows_wheels) > 0
@@ -437,7 +438,7 @@ class TestWheelFilenameAnalysis:
     def test_universal_wheel_analysis(self):
         """Test analysis of universal wheel filename."""
         result = _analyze_wheel_filename("mypackage-1.0.0-py2.py3-none-any.whl")
-        
+
         assert result["wheel_type"] == "universal"
         assert result["platform"] == "any"
         assert result["python_implementation"] == "universal"
@@ -445,7 +446,7 @@ class TestWheelFilenameAnalysis:
     def test_platform_specific_wheel_analysis(self):
         """Test analysis of platform-specific wheel filename."""
         result = _analyze_wheel_filename("mypackage-1.0.0-cp38-cp38-win_amd64.whl")
-        
+
         assert result["wheel_type"] == "platform_specific"
         assert result["platform"] == "windows"
         assert result["python_implementation"] == "cpython"
@@ -454,14 +455,14 @@ class TestWheelFilenameAnalysis:
     def test_linux_wheel_analysis(self):
         """Test analysis of Linux wheel filename."""
         result = _analyze_wheel_filename("mypackage-1.0.0-cp39-cp39-linux_x86_64.whl")
-        
+
         assert result["platform"] == "linux"
         assert result["architecture"] == "x86_64"
 
     def test_macos_wheel_analysis(self):
         """Test analysis of macOS wheel filename."""
         result = _analyze_wheel_filename("mypackage-1.0.0-cp310-cp310-macosx_10_9_x86_64.whl")
-        
+
         assert result["platform"] == "macos"
         assert result["architecture"] == "x86_64"
 
@@ -479,9 +480,9 @@ class TestBuildQualityAnalysis:
             ],
             "source": [{"size_bytes": 500000}],
         }
-        
+
         result = _analyze_build_quality(distributions, {})
-        
+
         assert result["health_status"] in ["good", "excellent"]
         assert result["platform_coverage"] == 3
         assert len(result["health_issues"]) == 0
@@ -492,9 +493,9 @@ class TestBuildQualityAnalysis:
             "wheels": [],  # No wheels
             "source": [],  # No source
         }
-        
+
         result = _analyze_build_quality(distributions, {})
-        
+
         assert result["health_status"] == "poor"
         assert len(result["health_issues"]) > 0
 
@@ -521,9 +522,9 @@ class TestUtilityFunctions:
                 "content": "Test description",
             }
         }
-        
+
         html = _generate_html_preview(sections)
-        
+
         assert "test-package" in html
         assert "1.0.0" in html
         assert "A test package" in html
@@ -535,12 +536,12 @@ class TestUtilityFunctions:
         errors = ["Missing required field: name"]
         warnings = ["Author email is recommended"]
         suggestions = ["Consider adding keywords"]
-        
+
         steps = _generate_next_steps(errors, warnings, suggestions, False)
-        
+
         assert len(steps) > 0
         assert any("Fix critical errors" in step for step in steps)
-        
+
         # Test with upload ready
         steps_ready = _generate_next_steps([], warnings, suggestions, True)
         assert any("Ready for upload" in step for step in steps_ready)
@@ -554,10 +555,10 @@ class TestErrorHandling:
         """Test custom workflow error handling."""
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.side_effect = Exception("Unexpected error")
-            
+
             with pytest.raises(PyPIWorkflowError) as exc_info:
                 await validate_pypi_package_name("test-package")
-            
+
             assert "validate_name" in str(exc_info.value.operation)
 
     @pytest.mark.asyncio
@@ -565,7 +566,7 @@ class TestErrorHandling:
         """Test that network errors are properly propagated."""
         with patch("pypi_query_mcp.tools.workflow.PyPIClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get_package_info.side_effect = NetworkError("Network down")
-            
+
             with pytest.raises(PyPIWorkflowError):
                 await get_pypi_build_logs("test-package")
 

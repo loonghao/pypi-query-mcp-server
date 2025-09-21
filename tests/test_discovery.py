@@ -1,19 +1,23 @@
 """Tests for PyPI Discovery & Monitoring Tools."""
 
-import pytest
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch, Mock
+from unittest.mock import AsyncMock, patch
 
-from pypi_query_mcp.core.exceptions import InvalidPackageNameError, NetworkError, SearchError
+import pytest
+
+from pypi_query_mcp.core.exceptions import (
+    InvalidPackageNameError,
+    NetworkError,
+    SearchError,
+)
 from pypi_query_mcp.tools.discovery import (
     DiscoveryCache,
+    _categorize_package,
+    _discovery_cache,
+    _is_package_maintainer,
     get_pypi_package_recommendations,
     get_pypi_trending_today,
     monitor_pypi_new_releases,
     search_pypi_by_maintainer,
-    _categorize_package,
-    _is_package_maintainer,
-    _discovery_cache,
 )
 
 
@@ -23,15 +27,15 @@ class TestDiscoveryCache:
     def test_cache_basic_operations(self):
         """Test basic cache get/set operations."""
         cache = DiscoveryCache(default_ttl=60)
-        
+
         # Test empty cache
         assert cache.get("nonexistent") is None
-        
+
         # Test set and get
         test_data = {"test": "value"}
         cache.set("test_key", test_data)
         assert cache.get("test_key") == test_data
-        
+
         # Test clear
         cache.clear()
         assert cache.get("test_key") is None
@@ -39,34 +43,34 @@ class TestDiscoveryCache:
     def test_cache_expiration(self):
         """Test cache expiration functionality."""
         cache = DiscoveryCache(default_ttl=1)  # 1 second TTL
-        
+
         test_data = {"test": "value"}
         cache.set("test_key", test_data)
-        
+
         # Should be available immediately
         assert cache.get("test_key") == test_data
-        
+
         # Mock time to simulate expiration
         with patch("time.time", return_value=1000000):
             cache.set("test_key", test_data)
-        
+
         with patch("time.time", return_value=1000002):  # 2 seconds later
             assert cache.get("test_key") is None
 
     def test_cache_custom_ttl(self):
         """Test cache with custom TTL."""
         cache = DiscoveryCache(default_ttl=60)
-        
+
         test_data = {"test": "value"}
         cache.set("test_key", test_data, ttl=120)  # Custom 2-minute TTL
-        
+
         # Should still be available after default TTL would expire
         with patch("time.time", return_value=1000000):
             cache.set("test_key", test_data, ttl=120)
-        
+
         with patch("time.time", return_value=1000060):  # 1 minute later
             assert cache.get("test_key") == test_data
-        
+
         with patch("time.time", return_value=1000130):  # 2+ minutes later
             assert cache.get("test_key") is None
 
@@ -86,7 +90,7 @@ class TestMonitorPyPINewReleases:
                 "link": "https://pypi.org/project/test-package/",
             }
         ]
-        
+
         mock_package_info = {
             "info": {
                 "name": "test-package",
@@ -101,25 +105,25 @@ class TestMonitorPyPINewReleases:
                 "classifiers": ["Topic :: Software Development"],
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery._fetch_recent_releases_from_rss") as mock_fetch:
             mock_fetch.return_value = mock_releases
-            
+
             with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
                 mock_client.get_package_info.return_value = mock_package_info
-                
+
                 with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                     mock_categorize.return_value = ["software-development"]
-                    
+
                     result = await monitor_pypi_new_releases(hours=24)
-                    
+
                     assert "new_releases" in result
                     assert result["total_releases_found"] == 1
                     assert result["monitoring_period_hours"] == 24
                     assert len(result["new_releases"]) == 1
-                    
+
                     release = result["new_releases"][0]
                     assert release["name"] == "test-package"
                     assert release["summary"] == "A test package"
@@ -144,14 +148,14 @@ class TestMonitorPyPINewReleases:
                 "link": "https://pypi.org/project/data-package/",
             }
         ]
-        
+
         with patch("pypi_query_mcp.tools.discovery._fetch_recent_releases_from_rss") as mock_fetch:
             mock_fetch.return_value = mock_releases
-            
+
             with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
-                
+
                 def mock_get_package_info(package_name):
                     if package_name == "web-package":
                         return {
@@ -165,15 +169,15 @@ class TestMonitorPyPINewReleases:
                     elif package_name == "data-package":
                         return {
                             "info": {
-                                "name": "data-package", 
+                                "name": "data-package",
                                 "author": "Data Author",
                                 "summary": "Data science package",
                                 "license": "Apache",
                             }
                         }
-                
+
                 mock_client.get_package_info.side_effect = mock_get_package_info
-                
+
                 with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                     def mock_categorize_func(info):
                         if "web" in info.get("summary", "").lower():
@@ -181,24 +185,24 @@ class TestMonitorPyPINewReleases:
                         elif "data" in info.get("summary", "").lower():
                             return ["data-science"]
                         return ["general"]
-                    
+
                     mock_categorize.side_effect = mock_categorize_func
-                    
+
                     # Test category filtering
                     result = await monitor_pypi_new_releases(
                         categories=["web"],
                         hours=24
                     )
-                    
+
                     assert result["total_releases_found"] == 1
                     assert result["new_releases"][0]["name"] == "web-package"
-                    
+
                     # Test maintainer filtering
                     result = await monitor_pypi_new_releases(
                         maintainer_filter="Web Author",
                         hours=24
                     )
-                    
+
                     assert result["total_releases_found"] == 1
                     assert result["new_releases"][0]["name"] == "web-package"
 
@@ -207,7 +211,7 @@ class TestMonitorPyPINewReleases:
         """Test cache functionality in monitoring."""
         # Clear cache first
         _discovery_cache.clear()
-        
+
         mock_releases = [
             {
                 "name": "cached-package",
@@ -217,10 +221,10 @@ class TestMonitorPyPINewReleases:
                 "link": "https://pypi.org/project/cached-package/",
             }
         ]
-        
+
         with patch("pypi_query_mcp.tools.discovery._fetch_recent_releases_from_rss") as mock_fetch:
             mock_fetch.return_value = mock_releases
-            
+
             with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
@@ -231,18 +235,18 @@ class TestMonitorPyPINewReleases:
                         "author": "Cache Author",
                     }
                 }
-                
+
                 with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                     mock_categorize.return_value = ["general"]
-                    
+
                     # First call should fetch data
                     result1 = await monitor_pypi_new_releases(hours=24, cache_ttl=300)
                     assert mock_fetch.call_count == 1
-                    
+
                     # Second call with same parameters should use cache
                     result2 = await monitor_pypi_new_releases(hours=24, cache_ttl=300)
                     assert mock_fetch.call_count == 1  # Should not increase
-                    
+
                     # Results should be identical
                     assert result1["timestamp"] == result2["timestamp"]
 
@@ -251,7 +255,7 @@ class TestMonitorPyPINewReleases:
         """Test error handling in monitoring."""
         with patch("pypi_query_mcp.tools.discovery._fetch_recent_releases_from_rss") as mock_fetch:
             mock_fetch.side_effect = Exception("Network error")
-            
+
             with pytest.raises(NetworkError):
                 await monitor_pypi_new_releases(hours=24)
 
@@ -273,7 +277,7 @@ class TestGetPyPITrendingToday:
                 }
             ]
         }
-        
+
         mock_trending_result = {
             "trending_packages": [
                 {
@@ -283,13 +287,13 @@ class TestGetPyPITrendingToday:
                 }
             ]
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery.monitor_pypi_new_releases") as mock_monitor:
             mock_monitor.return_value = mock_releases_result
-            
+
             with patch("pypi_query_mcp.tools.search.get_trending_packages") as mock_trending:
                 mock_trending.return_value = mock_trending_result
-                
+
                 with patch("pypi_query_mcp.tools.discovery._enhance_trending_analysis") as mock_enhance:
                     mock_enhance.return_value = [
                         {
@@ -303,12 +307,12 @@ class TestGetPyPITrendingToday:
                             "trending_reason": "download_surge",
                         }
                     ]
-                    
+
                     result = await get_pypi_trending_today(
                         category="web",
                         limit=10
                     )
-                    
+
                     assert "trending_today" in result
                     assert result["total_trending"] == 2
                     assert result["category"] == "web"
@@ -319,13 +323,13 @@ class TestGetPyPITrendingToday:
         """Test trending analysis with filters."""
         with patch("pypi_query_mcp.tools.discovery.monitor_pypi_new_releases") as mock_monitor:
             mock_monitor.return_value = {"new_releases": []}
-            
+
             with patch("pypi_query_mcp.tools.search.get_trending_packages") as mock_trending:
                 mock_trending.return_value = {"trending_packages": []}
-                
+
                 with patch("pypi_query_mcp.tools.discovery._enhance_trending_analysis") as mock_enhance:
                     mock_enhance.return_value = []
-                    
+
                     result = await get_pypi_trending_today(
                         category="ai",
                         min_downloads=5000,
@@ -333,7 +337,7 @@ class TestGetPyPITrendingToday:
                         include_new_packages=False,
                         trending_threshold=2.0
                     )
-                    
+
                     assert result["category"] == "ai"
                     assert result["filters_applied"]["min_downloads"] == 5000
                     assert result["filters_applied"]["trending_threshold"] == 2.0
@@ -344,7 +348,7 @@ class TestGetPyPITrendingToday:
         """Test error handling in trending analysis."""
         with patch("pypi_query_mcp.tools.discovery.monitor_pypi_new_releases") as mock_monitor:
             mock_monitor.side_effect = Exception("Monitoring error")
-            
+
             with pytest.raises(SearchError):
                 await get_pypi_trending_today()
 
@@ -362,12 +366,12 @@ class TestSearchPyPIByMaintainer:
                     "summary": "First package",
                 },
                 {
-                    "name": "maintainer-package-2", 
+                    "name": "maintainer-package-2",
                     "summary": "Second package",
                 }
             ]
         }
-        
+
         mock_package_info = {
             "info": {
                 "name": "maintainer-package-1",
@@ -381,26 +385,26 @@ class TestSearchPyPIByMaintainer:
                 "requires_python": ">=3.8",
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.search.search_packages") as mock_search:
             mock_search.return_value = mock_search_results
-            
+
             with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
                 mock_client.get_package_info.return_value = mock_package_info
-                
+
                 with patch("pypi_query_mcp.tools.discovery._is_package_maintainer") as mock_is_maintainer:
                     mock_is_maintainer.return_value = True
-                    
+
                     with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                         mock_categorize.return_value = ["development"]
-                        
+
                         result = await search_pypi_by_maintainer(
                             maintainer="Test Maintainer",
                             sort_by="popularity"
                         )
-                        
+
                         assert result["maintainer"] == "Test Maintainer"
                         assert result["total_packages"] == 1
                         assert len(result["packages"]) == 1
@@ -412,7 +416,7 @@ class TestSearchPyPIByMaintainer:
         """Test maintainer search with invalid input."""
         with pytest.raises(InvalidPackageNameError):
             await search_pypi_by_maintainer("")
-        
+
         with pytest.raises(InvalidPackageNameError):
             await search_pypi_by_maintainer("   ")
 
@@ -435,29 +439,29 @@ class TestSearchPyPIByMaintainer:
                 "last_day": 2000,
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.search.search_packages") as mock_search:
             mock_search.return_value = mock_search_results
-            
+
             with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
                 mock_client.get_package_info.return_value = mock_package_info
-                
+
                 with patch("pypi_query_mcp.tools.discovery._is_package_maintainer") as mock_is_maintainer:
                     mock_is_maintainer.return_value = True
-                    
+
                     with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                         mock_categorize.return_value = ["general"]
-                        
+
                         with patch("pypi_query_mcp.tools.download_stats.get_package_download_stats") as mock_get_stats:
                             mock_get_stats.return_value = mock_stats
-                            
+
                             result = await search_pypi_by_maintainer(
                                 maintainer="Stats Maintainer",
                                 include_stats=True
                             )
-                            
+
                             assert result["total_packages"] == 1
                             package = result["packages"][0]
                             assert "download_stats" in package
@@ -468,7 +472,7 @@ class TestSearchPyPIByMaintainer:
         """Test error handling in maintainer search."""
         with patch("pypi_query_mcp.tools.search.search_packages") as mock_search:
             mock_search.side_effect = Exception("Search error")
-            
+
             with pytest.raises(SearchError):
                 await search_pypi_by_maintainer("Error Maintainer")
 
@@ -488,12 +492,12 @@ class TestGetPyPIPackageRecommendations:
                 "classifiers": ["Topic :: Software Development"],
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_info
-            
+
             with patch("pypi_query_mcp.tools.discovery._find_similar_packages") as mock_similar:
                 mock_similar.return_value = [
                     {
@@ -503,7 +507,7 @@ class TestGetPyPIPackageRecommendations:
                         "reason": "Similar functionality",
                     }
                 ]
-                
+
                 with patch("pypi_query_mcp.tools.discovery._enhance_recommendations") as mock_enhance:
                     mock_enhance.return_value = [
                         {
@@ -514,15 +518,15 @@ class TestGetPyPIPackageRecommendations:
                             "categories": ["development"],
                         }
                     ]
-                    
+
                     with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                         mock_categorize.return_value = ["development"]
-                        
+
                         result = await get_pypi_package_recommendations(
                             package_name="base-package",
                             recommendation_type="similar"
                         )
-                        
+
                         assert result["base_package"]["name"] == "base-package"
                         assert result["total_recommendations"] == 1
                         assert result["recommendation_type"] == "similar"
@@ -538,12 +542,12 @@ class TestGetPyPIPackageRecommendations:
                 "summary": "Test package",
             }
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_info
-            
+
             with patch("pypi_query_mcp.tools.discovery._find_complementary_packages") as mock_complementary:
                 mock_complementary.return_value = [
                     {
@@ -552,7 +556,7 @@ class TestGetPyPIPackageRecommendations:
                         "confidence": 0.9,
                     }
                 ]
-                
+
                 with patch("pypi_query_mcp.tools.discovery._enhance_recommendations") as mock_enhance:
                     mock_enhance.return_value = [
                         {
@@ -561,15 +565,15 @@ class TestGetPyPIPackageRecommendations:
                             "confidence": 0.9,
                         }
                     ]
-                    
+
                     with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                         mock_categorize.return_value = ["general"]
-                        
+
                         result = await get_pypi_package_recommendations(
                             package_name="test-package",
                             recommendation_type="complementary"
                         )
-                        
+
                         assert result["recommendation_type"] == "complementary"
                         assert result["total_recommendations"] == 1
 
@@ -583,31 +587,31 @@ class TestGetPyPIPackageRecommendations:
                 "summary": "Package with context",
             }
         }
-        
+
         user_context = {
             "experience_level": "beginner",
             "use_case": "web development",
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.return_value = mock_package_info
-            
+
             with patch("pypi_query_mcp.tools.discovery._find_similar_packages") as mock_similar:
                 mock_similar.return_value = []
-                
+
                 with patch("pypi_query_mcp.tools.discovery._enhance_recommendations") as mock_enhance:
                     mock_enhance.return_value = []
-                    
+
                     with patch("pypi_query_mcp.tools.discovery._categorize_package") as mock_categorize:
                         mock_categorize.return_value = ["web"]
-                        
+
                         result = await get_pypi_package_recommendations(
                             package_name="context-package",
                             user_context=user_context
                         )
-                        
+
                         assert result["parameters"]["user_context"] == user_context
                         assert result["algorithm_insights"]["personalization_applied"] == True
 
@@ -616,7 +620,7 @@ class TestGetPyPIPackageRecommendations:
         """Test recommendations with invalid input."""
         with pytest.raises(InvalidPackageNameError):
             await get_pypi_package_recommendations("")
-        
+
         with pytest.raises(InvalidPackageNameError):
             await get_pypi_package_recommendations("   ")
 
@@ -627,7 +631,7 @@ class TestGetPyPIPackageRecommendations:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
             mock_client.get_package_info.side_effect = Exception("Package error")
-            
+
             with pytest.raises(SearchError):
                 await get_pypi_package_recommendations("error-package")
 
@@ -647,7 +651,7 @@ class TestHelperFunctions:
                 "Topic :: Software Development :: Libraries :: Python Modules"
             ],
         }
-        
+
         with patch("pypi_query_mcp.tools.discovery._categorize_package", return_value=["web", "internet"]):
             categories = _categorize_package(package_info)
             assert "web" in categories
@@ -660,17 +664,17 @@ class TestHelperFunctions:
             "maintainer": "Jane Smith",
             "maintainer_email": "jane@example.com",
         }
-        
+
         # Test author match
         assert _is_package_maintainer(package_info, "John Doe", False) == True
         assert _is_package_maintainer(package_info, "john doe", False) == True
-        
+
         # Test maintainer match
         assert _is_package_maintainer(package_info, "Jane Smith", False) == True
-        
+
         # Test no match
         assert _is_package_maintainer(package_info, "Bob Wilson", False) == False
-        
+
         # Test email match (when enabled)
         assert _is_package_maintainer(package_info, "john@example.com", True) == True
         assert _is_package_maintainer(package_info, "john@example.com", False) == False
@@ -708,15 +712,15 @@ class TestIntegration:
         """Test cache consistency across different discovery functions."""
         # Clear cache first
         _discovery_cache.clear()
-        
+
         # Test that cache is properly shared between functions
         with patch("pypi_query_mcp.tools.discovery._fetch_recent_releases_from_rss") as mock_fetch:
             mock_fetch.return_value = []
-            
+
             # First call should populate cache
             await monitor_pypi_new_releases(hours=24, cache_ttl=300)
             assert mock_fetch.call_count == 1
-            
+
             # Second call should use cache
             await monitor_pypi_new_releases(hours=24, cache_ttl=300)
             assert mock_fetch.call_count == 1  # Should not increase

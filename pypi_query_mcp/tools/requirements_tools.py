@@ -1,10 +1,13 @@
 """Requirements file analysis tools for Python projects."""
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
-from ..core.exceptions import InvalidPackageNameError, NetworkError, SearchError
-from ..tools.requirements_analyzer import analyze_project_requirements, compare_requirements_files
+from ..core.exceptions import NetworkError, SearchError
+from ..tools.requirements_analyzer import (
+    analyze_project_requirements,
+    compare_requirements_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +17,7 @@ async def analyze_requirements_file_tool(
     check_updates: bool = True,
     security_scan: bool = True,
     compatibility_check: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze project requirements file for dependencies, security, and compatibility.
     
@@ -44,7 +47,7 @@ async def analyze_requirements_file_tool(
         SearchError: If requirements analysis fails
     """
     logger.info(f"MCP tool: Analyzing requirements file {file_path}")
-    
+
     try:
         result = await analyze_project_requirements(
             file_path=file_path,
@@ -52,13 +55,13 @@ async def analyze_requirements_file_tool(
             security_scan=security_scan,
             compatibility_check=compatibility_check
         )
-        
+
         summary = result.get("analysis_summary", {})
         total_deps = summary.get("total_dependencies", 0)
         risk_level = summary.get("overall_risk_level", "unknown")
         logger.info(f"MCP tool: Requirements analysis completed for {file_path} - {total_deps} dependencies, risk level: {risk_level}")
         return result
-        
+
     except (FileNotFoundError, NetworkError, SearchError) as e:
         logger.error(f"Error analyzing requirements file {file_path}: {e}")
         return {
@@ -84,8 +87,8 @@ async def analyze_requirements_file_tool(
 
 
 async def compare_multiple_requirements_files(
-    file_paths: List[str]
-) -> Dict[str, Any]:
+    file_paths: list[str]
+) -> dict[str, Any]:
     """
     Compare multiple requirements files to identify differences and conflicts.
     
@@ -112,19 +115,19 @@ async def compare_multiple_requirements_files(
     """
     if not file_paths:
         raise ValueError("File paths list cannot be empty")
-        
+
     logger.info(f"MCP tool: Comparing {len(file_paths)} requirements files")
-    
+
     try:
         result = await compare_requirements_files(file_paths=file_paths)
-        
+
         comparison_results = result.get("comparison_results", {})
         conflicts = len(comparison_results.get("conflicting_packages", []))
         total_packages = comparison_results.get("total_unique_packages", 0)
-        
+
         logger.info(f"MCP tool: Requirements comparison completed - {total_packages} unique packages, {conflicts} conflicts found")
         return result
-        
+
     except (ValueError, NetworkError, SearchError) as e:
         logger.error(f"Error comparing requirements files: {e}")
         return {

@@ -6,6 +6,9 @@ from typing import Any
 
 import httpx
 
+from .rate_limiter import get_rate_limited_client
+from ..security.validation import sanitize_for_logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,11 +48,10 @@ class GitHubAPIClient:
         if github_token:
             headers["Authorization"] = f"token {github_token}"
 
-        self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout),
-            headers=headers,
-            follow_redirects=True,
-        )
+        # Use rate-limited HTTP client for GitHub API
+        self._client = get_rate_limited_client("github")
+        # Store headers for manual application since rate-limited client handles its own headers
+        self._headers = headers
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -61,7 +63,7 @@ class GitHubAPIClient:
 
     async def close(self):
         """Close the HTTP client."""
-        await self._client.aclose()
+        await self._client.close()
 
     def _get_cache_key(self, repo: str) -> str:
         """Generate cache key for repository data."""
@@ -90,21 +92,21 @@ class GitHubAPIClient:
                     f"Making GitHub API request to {url} (attempt {attempt + 1})"
                 )
 
-                response = await self._client.get(url)
+                response = await self._client.get(url, headers=self._headers)
 
                 # Handle different HTTP status codes
                 if response.status_code == 200:
                     return response.json()
                 elif response.status_code == 404:
-                    logger.warning(f"GitHub repository not found: {url}")
+                    logger.warning(f"GitHub repository not found: {sanitize_for_logging(url)}")
                     return None
                 elif response.status_code == 403:
                     # Rate limit or permission issue
-                    logger.warning(f"GitHub API rate limit or permission denied: {url}")
+                    logger.warning(f"GitHub API rate limit or permission denied: {sanitize_for_logging(url)}")
                     return None
                 elif response.status_code >= 500:
                     logger.warning(
-                        f"GitHub API server error {response.status_code}: {url}"
+                        f"GitHub API server error {response.status_code}: {sanitize_for_logging(url)}"
                     )
                     if attempt < self.max_retries:
                         continue

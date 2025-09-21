@@ -1,12 +1,9 @@
 """PyPI Discovery & Monitoring Tools for tracking new releases and trending packages."""
 
-import asyncio
-import json
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
-from urllib.parse import urlencode
+from typing import Any
 
 import httpx
 
@@ -27,12 +24,12 @@ logger = logging.getLogger(__name__)
 
 class DiscoveryCache:
     """Simple in-memory cache for discovery data with TTL."""
-    
+
     def __init__(self, default_ttl: int = 300):  # 5 minutes default
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
         self._default_ttl = default_ttl
-    
-    def get(self, key: str) -> Optional[Any]:
+
+    def get(self, key: str) -> Any | None:
         """Get cached value if not expired."""
         if key in self._cache:
             entry = self._cache[key]
@@ -41,12 +38,12 @@ class DiscoveryCache:
             else:
                 del self._cache[key]
         return None
-    
-    def set(self, key: str, data: Any, ttl: Optional[int] = None) -> None:
+
+    def set(self, key: str, data: Any, ttl: int | None = None) -> None:
         """Cache data with TTL."""
         expires_at = time.time() + (ttl or self._default_ttl)
         self._cache[key] = {"data": data, "expires_at": expires_at}
-    
+
     def clear(self) -> None:
         """Clear all cached data."""
         self._cache.clear()
@@ -57,13 +54,13 @@ _discovery_cache = DiscoveryCache()
 
 
 async def monitor_pypi_new_releases(
-    categories: Optional[List[str]] = None,
+    categories: list[str] | None = None,
     hours: int = 24,
-    min_downloads: Optional[int] = None,
-    maintainer_filter: Optional[str] = None,
+    min_downloads: int | None = None,
+    maintainer_filter: str | None = None,
     enable_notifications: bool = False,
     cache_ttl: int = 300,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Track new releases in specified categories over a time period.
     
@@ -83,18 +80,18 @@ async def monitor_pypi_new_releases(
         SearchError: If category filtering fails
     """
     logger.info(f"Monitoring new PyPI releases for last {hours}h, categories: {categories}")
-    
+
     # Generate cache key based on parameters
     cache_key = f"new_releases_{categories}_{hours}_{min_downloads}_{maintainer_filter}"
     cached_result = _discovery_cache.get(cache_key)
     if cached_result:
         logger.info("Returning cached new releases data")
         return cached_result
-    
+
     try:
         # Use PyPI RSS feeds for recent releases
         releases_data = await _fetch_recent_releases_from_rss(hours)
-        
+
         # Enhance with package metadata
         enhanced_releases = []
         async with PyPIClient() as client:
@@ -103,7 +100,7 @@ async def monitor_pypi_new_releases(
                     # Get full package info for filtering and categorization
                     package_info = await client.get_package_info(release["name"])
                     info = package_info["info"]
-                    
+
                     # Apply filters
                     if min_downloads:
                         # Skip packages that might not have download stats yet
@@ -115,18 +112,18 @@ async def monitor_pypi_new_releases(
                         except:
                             # If we can't get stats, assume it's a new package and include it
                             pass
-                    
+
                     if maintainer_filter and maintainer_filter.lower() not in info.get("author", "").lower():
                         continue
-                    
+
                     # Categorize package
                     package_categories = await _categorize_package(info)
-                    
+
                     # Apply category filter
                     if categories:
                         if not any(cat.lower() in [pc.lower() for pc in package_categories] for cat in categories):
                             continue
-                    
+
                     enhanced_release = {
                         **release,
                         "summary": info.get("summary", ""),
@@ -139,22 +136,22 @@ async def monitor_pypi_new_releases(
                         "project_urls": info.get("project_urls", {}),
                         "classifiers": info.get("classifiers", []),
                     }
-                    
+
                     enhanced_releases.append(enhanced_release)
-                    
+
                 except Exception as e:
                     logger.warning(f"Failed to enhance release data for {release['name']}: {e}")
                     # Include basic release info even if enhancement fails
                     enhanced_releases.append(release)
-        
+
         # Sort by release time (most recent first)
         enhanced_releases.sort(key=lambda x: x.get("release_time", ""), reverse=True)
-        
+
         # Generate alerts if monitoring is enabled
         alerts = []
         if enable_notifications:
             alerts = _generate_release_alerts(enhanced_releases, categories, min_downloads)
-        
+
         result = {
             "new_releases": enhanced_releases,
             "monitoring_period_hours": hours,
@@ -174,24 +171,24 @@ async def monitor_pypi_new_releases(
             },
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
-        
+
         # Cache the result
         _discovery_cache.set(cache_key, result, cache_ttl)
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error monitoring new releases: {e}")
         raise NetworkError(f"Failed to monitor new releases: {e}") from e
 
 
 async def get_pypi_trending_today(
-    category: Optional[str] = None,
+    category: str | None = None,
     min_downloads: int = 1000,
     limit: int = 50,
     include_new_packages: bool = True,
     trending_threshold: float = 1.5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get packages that are trending on PyPI right now based on recent activity.
     
@@ -210,7 +207,7 @@ async def get_pypi_trending_today(
         NetworkError: If unable to fetch trending data
     """
     logger.info(f"Analyzing today's PyPI trends, category: {category}, limit: {limit}")
-    
+
     try:
         # Get recent release activity as a proxy for trending
         recent_releases = await monitor_pypi_new_releases(
@@ -218,7 +215,7 @@ async def get_pypi_trending_today(
             hours=24,
             min_downloads=min_downloads if not include_new_packages else None
         )
-        
+
         # Use our existing trending functionality as a baseline
         from .search import get_trending_packages
         trending_base = await get_trending_packages(
@@ -226,11 +223,11 @@ async def get_pypi_trending_today(
             time_period="day",
             limit=limit * 2  # Get more to analyze
         )
-        
+
         # Combine and analyze trending signals
         trending_packages = []
         seen_packages = set()
-        
+
         # Add packages from recent releases (high activity signal)
         for release in recent_releases["new_releases"][:limit // 2]:
             if release["name"] not in seen_packages:
@@ -245,7 +242,7 @@ async def get_pypi_trending_today(
                     "download_trend": "rising",
                 })
                 seen_packages.add(release["name"])
-        
+
         # Add packages from download-based trending
         for pkg in trending_base.get("trending_packages", []):
             if pkg["package"] not in seen_packages and len(trending_packages) < limit:
@@ -259,13 +256,13 @@ async def get_pypi_trending_today(
                     "download_trend": "rising",
                 })
                 seen_packages.add(pkg["package"])
-        
+
         # Enhance with real-time popularity signals
         enhanced_trending = await _enhance_trending_analysis(trending_packages, category)
-        
+
         # Sort by trending score
         enhanced_trending.sort(key=lambda x: x["trending_score"], reverse=True)
-        
+
         result = {
             "trending_today": enhanced_trending[:limit],
             "analysis_date": datetime.utcnow().strftime("%Y-%m-%d"),
@@ -289,9 +286,9 @@ async def get_pypi_trending_today(
             },
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error analyzing trending packages: {e}")
         raise SearchError(f"Failed to analyze trending packages: {e}") from e
@@ -303,7 +300,7 @@ async def search_pypi_by_maintainer(
     sort_by: str = "popularity",
     limit: int = 50,
     include_stats: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Find all packages maintained by a specific maintainer or organization.
     
@@ -323,14 +320,14 @@ async def search_pypi_by_maintainer(
     """
     if not maintainer or not maintainer.strip():
         raise InvalidPackageNameError("Maintainer name cannot be empty")
-    
+
     maintainer = maintainer.strip()
     logger.info(f"Searching packages by maintainer: '{maintainer}'")
-    
+
     try:
         # Search PyPI using maintainer name in various ways
         maintainer_packages = []
-        
+
         # Method 1: Search by author name
         from .search import search_packages
         author_results = await search_packages(
@@ -338,7 +335,7 @@ async def search_pypi_by_maintainer(
             limit=limit * 2,
             sort_by="popularity"
         )
-        
+
         # Method 2: Full-text search including maintainer name
         text_results = await search_packages(
             query=maintainer,
@@ -346,32 +343,32 @@ async def search_pypi_by_maintainer(
             sort_by="popularity",
             semantic_search=True
         )
-        
+
         # Collect potential packages and verify maintainer
         candidate_packages = set()
-        
+
         # Add packages from author search
         for pkg in author_results.get("packages", []):
             candidate_packages.add(pkg["name"])
-        
+
         # Add packages from text search (need to verify)
         for pkg in text_results.get("packages", []):
             candidate_packages.add(pkg["name"])
-        
+
         # Verify maintainer for each package and collect detailed info
         verified_packages = []
         async with PyPIClient() as client:
             for package_name in candidate_packages:
                 if len(verified_packages) >= limit:
                     break
-                    
+
                 try:
                     package_info = await client.get_package_info(package_name)
                     info = package_info["info"]
-                    
+
                     # Check if maintainer matches
                     is_maintainer = _is_package_maintainer(info, maintainer, include_email)
-                    
+
                     if is_maintainer:
                         package_data = {
                             "name": info["name"],
@@ -389,7 +386,7 @@ async def search_pypi_by_maintainer(
                             "requires_python": info.get("requires_python", ""),
                             "upload_time": package_info.get("releases", {}).get(info["version"], [{}])[-1].get("upload_time", ""),
                         }
-                        
+
                         # Add download statistics if requested
                         if include_stats:
                             try:
@@ -398,22 +395,22 @@ async def search_pypi_by_maintainer(
                                 package_data["download_stats"] = stats.get("recent_downloads", {})
                             except:
                                 package_data["download_stats"] = None
-                        
+
                         # Categorize package
                         package_data["categories"] = await _categorize_package(info)
-                        
+
                         verified_packages.append(package_data)
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to verify maintainer for {package_name}: {e}")
                     continue
-        
+
         # Sort packages based on sort criteria
         sorted_packages = _sort_maintainer_packages(verified_packages, sort_by)
-        
+
         # Analyze maintainer's package portfolio
         portfolio_analysis = _analyze_maintainer_portfolio(sorted_packages, maintainer)
-        
+
         result = {
             "maintainer": maintainer,
             "packages": sorted_packages,
@@ -434,9 +431,9 @@ async def search_pypi_by_maintainer(
             },
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error searching packages by maintainer {maintainer}: {e}")
         raise SearchError(f"Failed to search by maintainer: {e}") from e
@@ -447,8 +444,8 @@ async def get_pypi_package_recommendations(
     recommendation_type: str = "similar",
     limit: int = 20,
     include_alternatives: bool = True,
-    user_context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    user_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Get PyPI's algorithm-based package recommendations and suggestions.
     
@@ -468,24 +465,24 @@ async def get_pypi_package_recommendations(
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError("Package name cannot be empty")
-    
+
     logger.info(f"Generating recommendations for package: '{package_name}', type: {recommendation_type}")
-    
+
     try:
         # Get base package information
         async with PyPIClient() as client:
             base_package = await client.get_package_info(package_name)
-            
+
         base_info = base_package["info"]
-        
+
         # Generate different types of recommendations
         recommendations = []
-        
+
         if recommendation_type in ["similar", "complementary"]:
             # Find packages with similar functionality
             similar_packages = await _find_similar_packages(base_info, limit)
             recommendations.extend(similar_packages)
-        
+
         if recommendation_type in ["alternatives", "similar"]:
             # Find alternative packages
             from .search import find_alternatives
@@ -494,7 +491,7 @@ async def get_pypi_package_recommendations(
                 limit=limit,
                 include_similar=True
             )
-            
+
             for alt in alternatives_result["alternatives"]:
                 recommendations.append({
                     "name": alt["name"],
@@ -504,21 +501,21 @@ async def get_pypi_package_recommendations(
                     "confidence": 0.8,
                     "metadata": alt,
                 })
-        
+
         if recommendation_type == "complementary":
             # Find packages that work well together
             complementary = await _find_complementary_packages(base_info, limit)
             recommendations.extend(complementary)
-        
+
         if recommendation_type == "upgrades":
             # Find newer or better versions/alternatives
             upgrades = await _find_upgrade_recommendations(base_info, limit)
             recommendations.extend(upgrades)
-        
+
         # Apply user context if provided
         if user_context:
             recommendations = _personalize_recommendations(recommendations, user_context)
-        
+
         # Remove duplicates and limit results
         seen_packages = set()
         filtered_recommendations = []
@@ -528,13 +525,13 @@ async def get_pypi_package_recommendations(
                 seen_packages.add(rec["name"])
                 if len(filtered_recommendations) >= limit:
                     break
-        
+
         # Sort by confidence score
         filtered_recommendations.sort(key=lambda x: x.get("confidence", 0), reverse=True)
-        
+
         # Enhance recommendations with additional data
         enhanced_recommendations = await _enhance_recommendations(filtered_recommendations)
-        
+
         result = {
             "base_package": {
                 "name": package_name,
@@ -562,9 +559,9 @@ async def get_pypi_package_recommendations(
             },
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error generating recommendations for {package_name}: {e}")
         raise SearchError(f"Failed to generate recommendations: {e}") from e
@@ -572,18 +569,18 @@ async def get_pypi_package_recommendations(
 
 # Helper functions for internal processing
 
-async def _fetch_recent_releases_from_rss(hours: int) -> List[Dict[str, Any]]:
+async def _fetch_recent_releases_from_rss(hours: int) -> list[dict[str, Any]]:
     """Fetch recent releases from PyPI RSS feeds."""
     releases = []
-    
+
     try:
         # PyPI RSS feed for recent updates
         rss_url = "https://pypi.org/rss/updates.xml"
-        
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(rss_url)
             response.raise_for_status()
-            
+
         # Parse RSS feed
         if not HAS_FEEDPARSER:
             logger.warning("feedparser not available - RSS monitoring limited")
@@ -596,10 +593,10 @@ async def _fetch_recent_releases_from_rss(hours: int) -> List[Dict[str, Any]]:
                 "category": category,
                 "timestamp": datetime.utcnow().isoformat()
             }
-            
+
         feed = parse_feed(response.content)
         cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        
+
         for entry in feed.entries:
             # Parse release time
             try:
@@ -609,13 +606,13 @@ async def _fetch_recent_releases_from_rss(hours: int) -> List[Dict[str, Any]]:
             except:
                 # If we can't parse time, include it anyway
                 release_time = None
-            
+
             # Extract package name and version from title
             title_parts = entry.title.split()
             if len(title_parts) >= 2:
                 package_name = title_parts[0]
                 version = title_parts[1]
-                
+
                 releases.append({
                     "name": package_name,
                     "version": version,
@@ -623,25 +620,25 @@ async def _fetch_recent_releases_from_rss(hours: int) -> List[Dict[str, Any]]:
                     "description": entry.description,
                     "link": entry.link,
                 })
-    
+
     except Exception as e:
         logger.warning(f"Failed to fetch RSS releases: {e}")
         # Fallback: return empty list but don't fail
-        
+
     return releases
 
 
-async def _categorize_package(package_info: Dict[str, Any]) -> List[str]:
+async def _categorize_package(package_info: dict[str, Any]) -> list[str]:
     """Categorize a package based on its metadata."""
     categories = []
-    
+
     # Extract text for analysis
     text_data = " ".join([
         package_info.get("summary") or "",
         package_info.get("description") or "",
         package_info.get("keywords") or "",
     ]).lower()
-    
+
     # Classifier-based categorization
     classifiers = package_info.get("classifiers", [])
     for classifier in classifiers:
@@ -649,7 +646,7 @@ async def _categorize_package(package_info: Dict[str, Any]) -> List[str]:
             topic = classifier.split("Topic ::")[-1].strip()
             if topic:
                 categories.append(topic.lower().replace(" ", "-"))
-    
+
     # Content-based categorization
     category_keywords = {
         "web": ["web", "http", "flask", "django", "fastapi", "server", "wsgi", "asgi", "rest", "api"],
@@ -663,26 +660,26 @@ async def _categorize_package(package_info: Dict[str, Any]) -> List[str]:
         "dev-tools": ["development", "build", "deploy", "packaging", "tools"],
         "ai": ["artificial intelligence", "ai", "neural", "deep learning", "tensorflow", "pytorch"],
     }
-    
+
     for category, keywords in category_keywords.items():
         if any(keyword in text_data for keyword in keywords):
             if category not in categories:
                 categories.append(category)
-    
+
     return categories if categories else ["general"]
 
 
-def _generate_release_alerts(releases: List[Dict[str, Any]], categories: Optional[List[str]], min_downloads: Optional[int]) -> List[Dict[str, Any]]:
+def _generate_release_alerts(releases: list[dict[str, Any]], categories: list[str] | None, min_downloads: int | None) -> list[dict[str, Any]]:
     """Generate alerts for monitored releases."""
     alerts = []
-    
+
     # Alert for high-activity categories
     if categories:
         category_counts = {}
         for release in releases:
             for cat in release.get("categories", []):
                 category_counts[cat] = category_counts.get(cat, 0) + 1
-        
+
         for cat, count in category_counts.items():
             if count >= 5:  # 5+ releases in category
                 alerts.append({
@@ -692,7 +689,7 @@ def _generate_release_alerts(releases: List[Dict[str, Any]], categories: Optiona
                     "severity": "info",
                     "package_count": count,
                 })
-    
+
     # Alert for notable new packages
     for release in releases:
         if "ai" in release.get("categories", []) or "machine-learning" in release.get("categories", []):
@@ -703,38 +700,38 @@ def _generate_release_alerts(releases: List[Dict[str, Any]], categories: Optiona
                 "severity": "info",
                 "category": "ai",
             })
-    
+
     return alerts
 
 
-def _analyze_category_activity(releases: List[Dict[str, Any]]) -> Dict[str, int]:
+def _analyze_category_activity(releases: list[dict[str, Any]]) -> dict[str, int]:
     """Analyze release activity by category."""
     category_counts = {}
     for release in releases:
         for category in release.get("categories", []):
             category_counts[category] = category_counts.get(category, 0) + 1
-    
+
     # Return top 5 most active categories
     return dict(sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5])
 
 
-def _analyze_maintainer_activity(releases: List[Dict[str, Any]]) -> Dict[str, int]:
+def _analyze_maintainer_activity(releases: list[dict[str, Any]]) -> dict[str, int]:
     """Analyze release activity by maintainer."""
     maintainer_counts = {}
     for release in releases:
         author = release.get("author", "").strip()
         if author:
             maintainer_counts[author] = maintainer_counts.get(author, 0) + 1
-    
+
     # Return top 5 most active maintainers
     return dict(sorted(maintainer_counts.items(), key=lambda x: x[1], reverse=True)[:5])
 
 
-def _analyze_release_frequency(releases: List[Dict[str, Any]], hours: int) -> Dict[str, Any]:
+def _analyze_release_frequency(releases: list[dict[str, Any]], hours: int) -> dict[str, Any]:
     """Analyze release frequency patterns."""
     total_releases = len(releases)
     releases_per_hour = total_releases / hours if hours > 0 else 0
-    
+
     return {
         "total_releases": total_releases,
         "releases_per_hour": round(releases_per_hour, 2),
@@ -742,21 +739,21 @@ def _analyze_release_frequency(releases: List[Dict[str, Any]], hours: int) -> Di
     }
 
 
-async def _enhance_trending_analysis(packages: List[Dict[str, Any]], category: Optional[str]) -> List[Dict[str, Any]]:
+async def _enhance_trending_analysis(packages: list[dict[str, Any]], category: str | None) -> list[dict[str, Any]]:
     """Enhance trending analysis with additional signals."""
     enhanced = []
-    
+
     for pkg in packages:
         enhanced_pkg = pkg.copy()
-        
+
         # Add trending signals
         if "new_release" in pkg.get("trending_reason", ""):
             enhanced_pkg["trending_score"] += 2.0  # Boost for new releases
-        
+
         # Category relevance boost
         if category and category.lower() in [c.lower() for c in pkg.get("categories", [])]:
             enhanced_pkg["trending_score"] += 1.0
-        
+
         # Add confidence level
         score = enhanced_pkg["trending_score"]
         if score >= 9.0:
@@ -765,86 +762,86 @@ async def _enhance_trending_analysis(packages: List[Dict[str, Any]], category: O
             enhanced_pkg["confidence"] = "medium"
         else:
             enhanced_pkg["confidence"] = "low"
-        
+
         enhanced.append(enhanced_pkg)
-    
+
     return enhanced
 
 
-def _analyze_trending_categories(packages: List[Dict[str, Any]]) -> Dict[str, int]:
+def _analyze_trending_categories(packages: list[dict[str, Any]]) -> dict[str, int]:
     """Analyze which categories are trending."""
     category_counts = {}
     for pkg in packages:
         for category in pkg.get("categories", []):
             category_counts[category] = category_counts.get(category, 0) + 1
-    
+
     return dict(sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:5])
 
 
-def _identify_emerging_patterns(packages: List[Dict[str, Any]]) -> List[str]:
+def _identify_emerging_patterns(packages: list[dict[str, Any]]) -> list[str]:
     """Identify emerging patterns in trending packages."""
     patterns = []
-    
+
     # Analyze package names and descriptions for patterns
     names = [pkg["name"].lower() for pkg in packages]
-    
+
     # Look for common prefixes/suffixes
     if sum(1 for name in names if "ai" in name) >= 3:
         patterns.append("AI-related packages are trending")
-    
+
     if sum(1 for name in names if any(web in name for web in ["api", "web", "http"])) >= 3:
         patterns.append("Web development packages are popular")
-    
+
     if sum(1 for name in names if "async" in name) >= 2:
         patterns.append("Async/concurrent programming tools are emerging")
-    
+
     return patterns
 
 
-def _generate_trending_recommendations(packages: List[Dict[str, Any]], category: Optional[str]) -> str:
+def _generate_trending_recommendations(packages: list[dict[str, Any]], category: str | None) -> str:
     """Generate recommendations based on trending analysis."""
     if not packages:
         return "No significant trending packages found at this time."
-    
+
     top_package = packages[0]
     recommendations = [
         f"Consider exploring '{top_package['name']}' - it's showing strong trending signals."
     ]
-    
+
     if category:
         category_packages = [p for p in packages if category.lower() in [c.lower() for c in p.get("categories", [])]]
         if category_packages:
             recommendations.append(f"The {category} category is particularly active today.")
-    
+
     return " ".join(recommendations)
 
 
-def _is_package_maintainer(package_info: Dict[str, Any], maintainer: str, include_email: bool) -> bool:
+def _is_package_maintainer(package_info: dict[str, Any], maintainer: str, include_email: bool) -> bool:
     """Check if the given maintainer matches the package maintainer."""
     maintainer_lower = maintainer.lower()
-    
+
     # Check author field
     author = package_info.get("author", "").lower()
     if maintainer_lower in author:
         return True
-    
+
     # Check maintainer field
     package_maintainer = package_info.get("maintainer", "").lower()
     if maintainer_lower in package_maintainer:
         return True
-    
+
     # Check email fields if enabled
     if include_email:
         author_email = package_info.get("author_email", "").lower()
         maintainer_email = package_info.get("maintainer_email", "").lower()
-        
+
         if maintainer_lower in author_email or maintainer_lower in maintainer_email:
             return True
-    
+
     return False
 
 
-def _sort_maintainer_packages(packages: List[Dict[str, Any]], sort_by: str) -> List[Dict[str, Any]]:
+def _sort_maintainer_packages(packages: list[dict[str, Any]], sort_by: str) -> list[dict[str, Any]]:
     """Sort maintainer packages by specified criteria."""
     if sort_by == "popularity":
         # Sort by download stats if available
@@ -874,26 +871,26 @@ def _sort_maintainer_packages(packages: List[Dict[str, Any]], sort_by: str) -> L
         return packages
 
 
-def _analyze_maintainer_portfolio(packages: List[Dict[str, Any]], maintainer: str) -> Dict[str, Any]:
+def _analyze_maintainer_portfolio(packages: list[dict[str, Any]], maintainer: str) -> dict[str, Any]:
     """Analyze a maintainer's package portfolio."""
     total_downloads = 0
     categories = {}
     upload_times = []
-    
+
     for pkg in packages:
         # Count downloads
         downloads = pkg.get("download_stats", {}).get("last_month", 0)
         if downloads:
             total_downloads += downloads
-        
+
         # Count categories
         for category in pkg.get("categories", []):
             categories[category] = categories.get(category, 0) + 1
-        
+
         # Collect upload times
         if pkg.get("upload_time"):
             upload_times.append(pkg["upload_time"])
-    
+
     # Determine activity level
     if len(packages) >= 10:
         activity_level = "high"
@@ -901,7 +898,7 @@ def _analyze_maintainer_portfolio(packages: List[Dict[str, Any]], maintainer: st
         activity_level = "medium"
     else:
         activity_level = "low"
-    
+
     return {
         "total_downloads": total_downloads,
         "category_distribution": dict(sorted(categories.items(), key=lambda x: x[1], reverse=True)),
@@ -911,25 +908,25 @@ def _analyze_maintainer_portfolio(packages: List[Dict[str, Any]], maintainer: st
     }
 
 
-async def _find_similar_packages(base_info: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+async def _find_similar_packages(base_info: dict[str, Any], limit: int) -> list[dict[str, Any]]:
     """Find packages similar to the base package."""
     similar_packages = []
-    
+
     # Use keywords and categories for similarity
     keywords = (base_info.get("keywords") or "").split()
     summary = base_info.get("summary", "")
-    
+
     if keywords or summary:
         from .search import search_packages
         search_query = " ".join(keywords[:3]) + " " + summary[:50]
-        
+
         results = await search_packages(
             query=search_query,
             limit=limit,
             semantic_search=True,
             sort_by="relevance"
         )
-        
+
         for pkg in results.get("packages", []):
             similar_packages.append({
                 "name": pkg["name"],
@@ -939,17 +936,17 @@ async def _find_similar_packages(base_info: Dict[str, Any], limit: int) -> List[
                 "confidence": 0.7,
                 "metadata": pkg,
             })
-    
+
     return similar_packages
 
 
-async def _find_complementary_packages(base_info: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+async def _find_complementary_packages(base_info: dict[str, Any], limit: int) -> list[dict[str, Any]]:
     """Find packages that complement the base package."""
     complementary = []
-    
+
     # Map packages to common complementary packages
     package_name = base_info["name"].lower()
-    
+
     complement_map = {
         "flask": ["flask-sqlalchemy", "flask-login", "flask-wtf"],
         "django": ["djangorestframework", "django-cors-headers", "celery"],
@@ -958,9 +955,9 @@ async def _find_complementary_packages(base_info: Dict[str, Any], limit: int) ->
         "numpy": ["scipy", "matplotlib", "pandas"],
         "requests": ["urllib3", "httpx", "aiohttp"],
     }
-    
+
     complements = complement_map.get(package_name, [])
-    
+
     for comp_name in complements[:limit]:
         complementary.append({
             "name": comp_name,
@@ -968,26 +965,26 @@ async def _find_complementary_packages(base_info: Dict[str, Any], limit: int) ->
             "reason": f"Commonly used with {package_name}",
             "confidence": 0.8,
         })
-    
+
     return complementary
 
 
-async def _find_upgrade_recommendations(base_info: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+async def _find_upgrade_recommendations(base_info: dict[str, Any], limit: int) -> list[dict[str, Any]]:
     """Find upgrade recommendations for the base package."""
     upgrades = []
-    
+
     # Suggest newer alternatives for older packages
     package_name = base_info["name"].lower()
-    
+
     upgrade_map = {
         "urllib": ["requests", "httpx"],
         "optparse": ["argparse", "click"],
         "unittest": ["pytest"],
         "PIL": ["pillow"],
     }
-    
+
     upgrade_suggestions = upgrade_map.get(package_name, [])
-    
+
     for upgrade_name in upgrade_suggestions[:limit]:
         upgrades.append({
             "name": upgrade_name,
@@ -995,15 +992,15 @@ async def _find_upgrade_recommendations(base_info: Dict[str, Any], limit: int) -
             "reason": f"Modern alternative to {package_name}",
             "confidence": 0.9,
         })
-    
+
     return upgrades
 
 
-def _personalize_recommendations(recommendations: List[Dict[str, Any]], user_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _personalize_recommendations(recommendations: list[dict[str, Any]], user_context: dict[str, Any]) -> list[dict[str, Any]]:
     """Personalize recommendations based on user context."""
     experience_level = user_context.get("experience_level", "intermediate")
     use_case = user_context.get("use_case", "")
-    
+
     # Adjust confidence based on experience level
     for rec in recommendations:
         if experience_level == "beginner":
@@ -1014,20 +1011,20 @@ def _personalize_recommendations(recommendations: List[Dict[str, Any]], user_con
             # Prefer cutting-edge packages
             if "async" in rec["name"].lower() or "fast" in rec["name"].lower():
                 rec["confidence"] += 0.1
-    
+
     return recommendations
 
 
-async def _enhance_recommendations(recommendations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+async def _enhance_recommendations(recommendations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Enhance recommendations with additional metadata."""
     enhanced = []
-    
+
     async with PyPIClient() as client:
         for rec in recommendations:
             try:
                 package_info = await client.get_package_info(rec["name"])
                 info = package_info["info"]
-                
+
                 enhanced_rec = rec.copy()
                 enhanced_rec.update({
                     "version": info["version"],
@@ -1036,30 +1033,30 @@ async def _enhance_recommendations(recommendations: List[Dict[str, Any]]) -> Lis
                     "requires_python": info.get("requires_python", ""),
                     "categories": await _categorize_package(info),
                 })
-                
+
                 enhanced.append(enhanced_rec)
-                
+
             except Exception as e:
                 logger.warning(f"Failed to enhance recommendation for {rec['name']}: {e}")
                 enhanced.append(rec)
-    
+
     return enhanced
 
 
-def _summarize_recommendations_by_type(recommendations: List[Dict[str, Any]]) -> Dict[str, int]:
+def _summarize_recommendations_by_type(recommendations: list[dict[str, Any]]) -> dict[str, int]:
     """Summarize recommendations by type."""
     type_counts = {}
     for rec in recommendations:
         rec_type = rec.get("type", "unknown")
         type_counts[rec_type] = type_counts.get(rec_type, 0) + 1
-    
+
     return type_counts
 
 
-def _analyze_confidence_distribution(recommendations: List[Dict[str, Any]]) -> Dict[str, int]:
+def _analyze_confidence_distribution(recommendations: list[dict[str, Any]]) -> dict[str, int]:
     """Analyze confidence score distribution."""
     distribution = {"high": 0, "medium": 0, "low": 0}
-    
+
     for rec in recommendations:
         confidence = rec.get("confidence", 0)
         if confidence >= 0.8:
@@ -1068,14 +1065,14 @@ def _analyze_confidence_distribution(recommendations: List[Dict[str, Any]]) -> D
             distribution["medium"] += 1
         else:
             distribution["low"] += 1
-    
+
     return distribution
 
 
-def _analyze_category_coverage(recommendations: List[Dict[str, Any]]) -> List[str]:
+def _analyze_category_coverage(recommendations: list[dict[str, Any]]) -> list[str]:
     """Analyze category coverage in recommendations."""
     categories = set()
     for rec in recommendations:
         categories.update(rec.get("categories", []))
-    
+
     return list(categories)

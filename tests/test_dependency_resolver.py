@@ -142,13 +142,13 @@ class TestDependencyResolver:
 
             # Verify that the main package is in the dependency tree
             assert "mock-test-package-12345" in result["dependency_tree"]
-            
+
             # The extras should be resolved when include_extras=["test"] is specified
             # Check that pytest is included as an extra dependency
             main_pkg = result["dependency_tree"]["mock-test-package-12345"]
             assert "dependencies" in main_pkg
             assert "extras" in main_pkg["dependencies"]
-            
+
             # Check if test extras are included
             if "test" in main_pkg["dependencies"]["extras"]:
                 assert len(main_pkg["dependencies"]["extras"]["test"]) >= 1
@@ -238,12 +238,12 @@ class TestDependencyResolver:
 
             # Verify that the main package is in the dependency tree
             assert "test-package" in result["dependency_tree"]
-            
+
             # The extras should be resolved when include_extras=["test"] is specified
             main_pkg = result["dependency_tree"]["test-package"]
             assert "dependencies" in main_pkg
             assert "extras" in main_pkg["dependencies"]
-            
+
             # Verify that test extras are included and contain both pytest and coverage
             if "test" in main_pkg["dependencies"]["extras"]:
                 test_deps = main_pkg["dependencies"]["extras"]["test"]

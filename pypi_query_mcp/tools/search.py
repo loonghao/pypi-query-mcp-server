@@ -1,10 +1,12 @@
 """PyPI search tools with advanced filtering and sorting capabilities."""
 
 import logging
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any
 
 from ..core.exceptions import InvalidPackageNameError, SearchError
 from ..core.search_client import PyPISearchClient, SearchFilter, SearchSort
+from ..security.validation import sanitize_for_logging, SecurityValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +14,16 @@ logger = logging.getLogger(__name__)
 async def search_packages(
     query: str,
     limit: int = 20,
-    python_versions: Optional[List[str]] = None,
-    licenses: Optional[List[str]] = None,
-    categories: Optional[List[str]] = None,
-    min_downloads: Optional[int] = None,
-    maintenance_status: Optional[str] = None,
-    has_wheels: Optional[bool] = None,
+    python_versions: list[str] | None = None,
+    licenses: list[str] | None = None,
+    categories: list[str] | None = None,
+    min_downloads: int | None = None,
+    maintenance_status: str | None = None,
+    has_wheels: bool | None = None,
     sort_by: str = "relevance",
     sort_desc: bool = True,
     semantic_search: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search PyPI packages with advanced filtering and sorting.
     
@@ -47,12 +49,45 @@ async def search_packages(
     """
     if not query or not query.strip():
         raise InvalidPackageNameError("Search query cannot be empty")
-    
+
+    # Comprehensive input validation
+    query = query.strip()
+
+    # Length validation
+    if len(query) > 1000:  # Reasonable maximum for search queries
+        raise InvalidPackageNameError("Search query too long (max 1000 characters)")
+
+    # Sanitize query for logging (remove potential injection content)
+    safe_query = sanitize_for_logging(query)
+
+    # Basic security patterns - reject obvious injection attempts
+    dangerous_patterns = [
+        r'<script',
+        r'javascript:',
+        r'data:',
+        r'vbscript:',
+        r'onload=',
+        r'onerror=',
+    ]
+
+    query_lower = query.lower()
+    for pattern in dangerous_patterns:
+        if pattern in query_lower:
+            logger.warning(f"Potentially malicious search query blocked: {safe_query}")
+            raise SecurityValidationError(f"Search query contains potentially dangerous content")
+
+    # Validate limit parameter
     if limit <= 0 or limit > 100:
         limit = 20
-    
-    logger.info(f"Searching PyPI: '{query}' (limit: {limit}, sort: {sort_by})")
-    
+
+    # Validate sort_by parameter
+    valid_sort_options = ["relevance", "popularity", "recency", "quality", "name", "downloads"]
+    if sort_by not in valid_sort_options:
+        logger.warning(f"Invalid sort option '{sort_by}', defaulting to 'relevance'")
+        sort_by = "relevance"
+
+    logger.info(f"Searching PyPI: '{safe_query}' (limit: {limit}, sort: {sort_by})")
+
     try:
         # Create search filters
         filters = SearchFilter(
@@ -63,10 +98,10 @@ async def search_packages(
             maintenance_status=maintenance_status,
             has_wheels=has_wheels,
         )
-        
+
         # Create sort configuration
         sort = SearchSort(field=sort_by, reverse=sort_desc)
-        
+
         # Perform search
         async with PyPISearchClient() as search_client:
             result = await search_client.search_packages(
@@ -76,9 +111,9 @@ async def search_packages(
                 sort=sort,
                 semantic_search=semantic_search,
             )
-        
+
         return result
-        
+
     except SearchError:
         raise
     except Exception as e:
@@ -90,8 +125,8 @@ async def search_by_category(
     category: str,
     limit: int = 20,
     sort_by: str = "popularity",
-    python_version: Optional[str] = None,
-) -> Dict[str, Any]:
+    python_version: str | None = None,
+) -> dict[str, Any]:
     """
     Search packages by category with popularity sorting.
     
@@ -105,7 +140,7 @@ async def search_by_category(
         Dictionary containing categorized search results
     """
     logger.info(f"Searching category: '{category}' (limit: {limit})")
-    
+
     # Map category to search query and filters
     category_queries = {
         "web": "web framework flask django fastapi",
@@ -119,9 +154,9 @@ async def search_by_category(
         "cloud": "cloud aws azure gcp docker kubernetes",
         "gui": "gui interface tkinter qt desktop",
     }
-    
+
     query = category_queries.get(category.lower(), category)
-    
+
     return await search_packages(
         query=query,
         limit=limit,
@@ -136,7 +171,7 @@ async def find_alternatives(
     package_name: str,
     limit: int = 10,
     include_similar: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Find alternative packages to a given package.
     
@@ -149,26 +184,26 @@ async def find_alternatives(
         Dictionary containing alternative packages and analysis
     """
     logger.info(f"Finding alternatives for: '{package_name}'")
-    
+
     try:
         # First, get information about the target package
         from ..core.pypi_client import PyPIClient
-        
+
         async with PyPIClient() as client:
             package_data = await client.get_package_info(package_name)
-            
+
         info = package_data["info"]
         keywords = info.get("keywords", "")
         summary = info.get("summary", "")
         categories = info.get("classifiers", [])
-        
+
         # Extract category information
         category_terms = []
         for classifier in categories:
             if "Topic ::" in classifier:
                 topic = classifier.split("Topic ::")[-1].strip().lower()
                 category_terms.append(topic)
-        
+
         # Create search query from package metadata
         search_terms = []
         if keywords:
@@ -177,12 +212,12 @@ async def find_alternatives(
             # Extract key terms from summary
             summary_words = [w for w in summary.lower().split() if len(w) > 3]
             search_terms.extend(summary_words[:5])
-        
+
         search_query = " ".join(search_terms[:8])  # Limit to most relevant terms
-        
+
         if not search_query:
             search_query = package_name  # Fallback to package name
-        
+
         # Search for alternatives
         results = await search_packages(
             query=search_query,
@@ -190,15 +225,15 @@ async def find_alternatives(
             sort_by="popularity",
             semantic_search=include_similar,
         )
-        
+
         # Filter out the original package
         alternatives = []
         for pkg in results["packages"]:
             if pkg["name"].lower() != package_name.lower():
                 alternatives.append(pkg)
-        
+
         alternatives = alternatives[:limit]
-        
+
         return {
             "target_package": {
                 "name": package_name,
@@ -216,17 +251,17 @@ async def find_alternatives(
             },
             "timestamp": results["timestamp"],
         }
-        
+
     except Exception as e:
         logger.error(f"Error finding alternatives for {package_name}: {e}")
         raise SearchError(f"Failed to find alternatives: {e}") from e
 
 
 async def get_trending_packages(
-    category: Optional[str] = None,
+    category: str | None = None,
     time_period: str = "week",
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get trending packages based on recent download activity.
     
@@ -239,13 +274,13 @@ async def get_trending_packages(
         Dictionary containing trending packages
     """
     logger.info(f"Getting trending packages: category={category}, period={time_period}")
-    
+
     try:
         # Use our top packages functionality as a base
         from .download_stats import get_top_packages_by_downloads
-        
+
         top_packages_result = await get_top_packages_by_downloads(period=time_period, limit=limit * 2)
-        
+
         # Filter by category if specified
         if category:
             # Enhance with category information
@@ -256,11 +291,11 @@ async def get_trending_packages(
                     from ..core.pypi_client import PyPIClient
                     async with PyPIClient() as client:
                         package_data = await client.get_package_info(pkg["package"])
-                        
+
                     # Simple category matching
                     info = package_data["info"]
                     text = f"{info.get('keywords', '')} {info.get('summary', '')}".lower()
-                    
+
                     category_keywords = {
                         "web": ["web framework", "web", "flask", "django", "fastapi", "wsgi", "asgi"],
                         "data-science": ["data", "science", "pandas", "numpy", "ml"],
@@ -268,7 +303,7 @@ async def get_trending_packages(
                         "testing": ["test", "pytest", "mock"],
                         "cli": ["cli", "command", "argparse", "click"],
                     }
-                    
+
                     if category.lower() in category_keywords:
                         keywords = category_keywords[category.lower()]
                         # For web category, be more specific to avoid HTTP clients
@@ -277,7 +312,7 @@ async def get_trending_packages(
                             match_found = any(pattern in text for pattern in web_patterns)
                         else:
                             match_found = any(keyword in text for keyword in keywords)
-                        
+
                         if match_found:
                             enhanced_packages.append({
                                 **pkg,
@@ -286,11 +321,11 @@ async def get_trending_packages(
                             })
                 except:
                     continue
-            
+
             trending_packages = enhanced_packages[:limit]
         else:
             trending_packages = top_packages_result["top_packages"][:limit]
-        
+
         return {
             "trending_packages": trending_packages,
             "time_period": time_period,
@@ -303,7 +338,7 @@ async def get_trending_packages(
             },
             "timestamp": top_packages_result["timestamp"],
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting trending packages: {e}")
         raise SearchError(f"Failed to get trending packages: {e}") from e

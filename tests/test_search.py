@@ -1,13 +1,14 @@
 """Tests for PyPI search functionality."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from pypi_query_mcp.core.search_client import PyPISearchClient, SearchFilter, SearchSort
 from pypi_query_mcp.tools.search import (
     find_alternatives,
     get_trending_packages,
-    search_by_category, 
+    search_by_category,
     search_packages,
 )
 
@@ -22,7 +23,7 @@ class TestSearchPackages:
         with patch("pypi_query_mcp.tools.search.PyPISearchClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             mock_result = {
                 "query": "flask",
                 "total_found": 5,
@@ -43,11 +44,11 @@ class TestSearchPackages:
                 "semantic_search": False,
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_client.search_packages.return_value = mock_result
-            
+
             result = await search_packages(query="flask", limit=20)
-            
+
             assert result["query"] == "flask"
             assert len(result["packages"]) == 1
             assert result["packages"][0]["name"] == "Flask"
@@ -59,7 +60,7 @@ class TestSearchPackages:
         with patch("pypi_query_mcp.tools.search.PyPISearchClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             mock_result = {
                 "query": "web framework",
                 "total_found": 10,
@@ -78,9 +79,9 @@ class TestSearchPackages:
                 },
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_client.search_packages.return_value = mock_result
-            
+
             result = await search_packages(
                 query="web framework",
                 python_versions=["3.9"],
@@ -88,7 +89,7 @@ class TestSearchPackages:
                 categories=["web"],
                 min_downloads=1000,
             )
-            
+
             assert result["filtered_count"] == 3
             assert all(pkg["categories"] == ["web"] for pkg in result["packages"])
 
@@ -96,7 +97,7 @@ class TestSearchPackages:
     async def test_empty_query_error(self):
         """Test that empty query raises appropriate error."""
         from pypi_query_mcp.core.exceptions import InvalidPackageNameError
-        
+
         with pytest.raises(InvalidPackageNameError):
             await search_packages(query="")
 
@@ -106,7 +107,7 @@ class TestSearchPackages:
         with patch("pypi_query_mcp.tools.search.PyPISearchClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             mock_result = {
                 "query": "machine learning",
                 "packages": [
@@ -116,14 +117,14 @@ class TestSearchPackages:
                 "semantic_search": True,
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_client.search_packages.return_value = mock_result
-            
+
             result = await search_packages(
                 query="machine learning",
                 semantic_search=True,
             )
-            
+
             assert result["semantic_search"] is True
             assert result["packages"][0]["semantic_score"] == 0.95
 
@@ -143,11 +144,11 @@ class TestSearchByCategory:
                 ],
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_search.return_value = mock_result
-            
+
             result = await search_by_category(category="web", limit=10)
-            
+
             assert len(result["packages"]) == 2
             mock_search.assert_called_once_with(
                 query="web framework flask django fastapi",
@@ -170,14 +171,14 @@ class TestSearchByCategory:
                 ],
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_search.return_value = mock_result
-            
+
             result = await search_by_category(
-                category="data-science", 
+                category="data-science",
                 python_version="3.10"
             )
-            
+
             mock_search.assert_called_once_with(
                 query="data science machine learning pandas numpy",
                 limit=20,
@@ -197,7 +198,7 @@ class TestFindAlternatives:
         with patch("pypi_query_mcp.core.pypi_client.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             # Mock Flask package data
             mock_flask_data = {
                 "info": {
@@ -210,9 +211,9 @@ class TestFindAlternatives:
                     ],
                 }
             }
-            
+
             mock_client.get_package_info.return_value = mock_flask_data
-            
+
             with patch("pypi_query_mcp.tools.search.search_packages") as mock_search:
                 mock_search_result = {
                     "packages": [
@@ -223,28 +224,28 @@ class TestFindAlternatives:
                     ],
                     "timestamp": "2023-01-01T00:00:00Z",
                 }
-                
+
                 mock_search.return_value = mock_search_result
-                
+
                 result = await find_alternatives(
                     package_name="Flask",
                     limit=5,
                     include_similar=True,
                 )
-                
+
                 # Should exclude the original Flask package
                 assert result["target_package"]["name"] == "Flask"
                 assert len(result["alternatives"]) == 3
                 assert not any(alt["name"] == "Flask" for alt in result["alternatives"])
                 assert result["analysis"]["semantic_search_used"] is True
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_alternatives_with_keywords(self):
         """Test alternatives finding using package keywords."""
         with patch("pypi_query_mcp.core.pypi_client.PyPIClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client_class.return_value.__aenter__.return_value = mock_client
-            
+
             mock_package_data = {
                 "info": {
                     "name": "requests",
@@ -253,9 +254,9 @@ class TestFindAlternatives:
                     "classifiers": ["Topic :: Internet :: WWW/HTTP"],
                 }
             }
-            
+
             mock_client.get_package_info.return_value = mock_package_data
-            
+
             with patch("pypi_query_mcp.tools.search.search_packages") as mock_search:
                 mock_search.return_value = {
                     "packages": [
@@ -264,9 +265,9 @@ class TestFindAlternatives:
                     ],
                     "timestamp": "2023-01-01T00:00:00Z",
                 }
-                
+
                 result = await find_alternatives(package_name="requests")
-                
+
                 assert "http client requests api" in result["search_query_used"]
                 assert result["analysis"]["search_method"] == "keyword_similarity"
 
@@ -286,14 +287,14 @@ class TestGetTrendingPackages:
                 ],
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_top_packages.return_value = mock_result
-            
+
             result = await get_trending_packages(
                 time_period="week",
                 limit=10,
             )
-            
+
             assert result["time_period"] == "week"
             assert result["category"] is None
             assert len(result["trending_packages"]) == 3
@@ -311,14 +312,14 @@ class TestGetTrendingPackages:
                 ],
                 "timestamp": "2023-01-01T00:00:00Z",
             }
-            
+
             mock_top_packages.return_value = mock_result
-            
+
             # Mock PyPI client for package metadata
             with patch("pypi_query_mcp.core.pypi_client.PyPIClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client_class.return_value.__aenter__.return_value = mock_client
-                
+
                 def mock_get_package_info(package_name):
                     if package_name == "flask":
                         return {
@@ -341,15 +342,15 @@ class TestGetTrendingPackages:
                                 "summary": "HTTP library",
                             }
                         }
-                
+
                 mock_client.get_package_info.side_effect = mock_get_package_info
-                
+
                 result = await get_trending_packages(
                     category="web",
                     time_period="month",
                     limit=5,
                 )
-                
+
                 assert result["category"] == "web"
                 assert result["analysis"]["category_filtered"] is True
                 # Should only include web packages (flask, django)
@@ -374,7 +375,7 @@ class TestSearchClient:
             categories=["web", "data-science"],
             min_downloads=1000,
         )
-        
+
         assert filters.python_versions == ["3.9", "3.10"]
         assert filters.licenses == ["mit", "apache"]
         assert filters.categories == ["web", "data-science"]
@@ -383,10 +384,10 @@ class TestSearchClient:
     def test_search_sort_creation(self):
         """Test SearchSort creation."""
         sort = SearchSort(field="popularity", reverse=True)
-        
+
         assert sort.field == "popularity"
         assert sort.reverse is True
-        
+
         # Test defaults
         default_sort = SearchSort()
         assert default_sort.field == "relevance"

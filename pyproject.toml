@@ -1,17 +1,17 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry]
+[project]
 name = "mcpypi"
-version = "1.0.0"
+version = "2025.09.19.1"
 description = "🎤 mcpypi - Your Master of Ceremonies for PyPI! The ultimate PyPI package intelligence platform through Model Context Protocol (MCP)"
-authors = ["Hal <hal.long@outlook.com>"]
+authors = [
+    {name = "rpm", email = "rpm@localhost"}
+]
 readme = "README.md"
 license = "MIT"
-homepage = "https://github.com/loonghao/pypi-query-mcp-server"
-repository = "https://github.com/loonghao/pypi-query-mcp-server"
-documentation = "https://github.com/loonghao/pypi-query-mcp-server"
+requires-python = ">=3.10"
 keywords = ["mcp", "pypi", "package", "dependency", "python", "security", "license", "analysis", "intelligence", "claude"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -28,31 +28,37 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Framework :: AsyncIO",
 ]
-packages = [{include = "pypi_query_mcp"}]
+dependencies = [
+    "fastmcp>=2.0.0",
+    "httpx>=0.28.0",
+    "packaging>=24.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "click==8.1.7",
+    "feedparser>=6.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-fastmcp = "^2.0.0"
-httpx = "^0.28.0"
-packaging = "^24.0"
-pydantic = "^2.0.0"
-pydantic-settings = "^2.0.0"
-click = "8.1.7"
-feedparser = "^6.0.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=6.0.0", 
+    "pytest-mock>=3.12.0",
+    "ruff>=0.12.0",
+    "pre-commit>=4.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-asyncio = "^0.23.0"
-pytest-cov = "^6.0.0"
-pytest-mock = "^3.12.0"
-ruff = "^0.12.0"
-pre-commit = "^4.0.0"
-nox = "^2025.0.0"
-commitizen = "^3.0.0"
+[project.urls]
+Homepage = "https://github.com/rsp2k/pypi-query-mcp-server"
+Repository = "https://github.com/rsp2k/pypi-query-mcp-server"
+Documentation = "https://github.com/rsp2k/pypi-query-mcp-server"
 
-[tool.poetry.scripts]
+[project.scripts]
 mcpypi = "pypi_query_mcp.server:main"
 pypi-query-mcp = "pypi_query_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pypi_query_mcp"]
 
 [tool.ruff]
 target-version = "py310"
@@ -112,3 +118,15 @@ version_scheme = "pep440"
 version_provider = "poetry"
 update_changelog_on_bump = true
 major_version_zero = true
+
+[dependency-groups]
+dev = [
+    "bandit>=1.8.6",
+    "pip-audit>=2.9.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.3.0",
+    "safety>=3.2.11",
+    "twine>=5.0.0",
+    "build>=1.0.0",
+]

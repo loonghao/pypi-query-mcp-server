@@ -2,13 +2,19 @@
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import quote
 
 import httpx
 
-from ..core import InvalidPackageNameError, NetworkError, PackageNotFoundError, PyPIClient
+from ..core import (
+    InvalidPackageNameError,
+    NetworkError,
+    PackageNotFoundError,
+    PyPIClient,
+)
 from ..core.exceptions import PyPIError
+from ..security import SecurityValidationError, secure_validate_package_name
 
 logger = logging.getLogger(__name__)
 
@@ -21,78 +27,41 @@ class PyPIWorkflowError(PyPIError):
         self.operation = operation
 
 
-def _validate_package_name_format(package_name: str) -> Dict[str, Any]:
-    """Validate package name format according to PyPI standards.
-    
+def _validate_package_name_format(package_name: str) -> dict[str, Any]:
+    """Validate package name format according to PyPI standards with security checks.
+
     Args:
         package_name: Package name to validate
-        
+
     Returns:
         Dictionary with validation results
+
+    Raises:
+        SecurityValidationError: If package name fails security validation
     """
-    issues = []
-    recommendations = []
-    
-    # Check basic format
-    if not package_name:
-        issues.append("Package name cannot be empty")
+    try:
+        # Use secure validation first
+        secure_result = secure_validate_package_name(package_name)
+
+        # Convert security result to expected format
+        return {
+            "valid": secure_result["valid"] and secure_result["secure"],
+            "issues": secure_result["issues"] + secure_result["security_warnings"],
+            "recommendations": secure_result["recommendations"],
+            "normalized_name": secure_result["normalized_name"],
+        }
+
+    except SecurityValidationError as e:
+        logger.warning(f"Security validation failed for package name '{package_name}': {e}")
         return {
             "valid": False,
-            "issues": issues,
-            "recommendations": ["Provide a non-empty package name"],
+            "issues": [str(e)],
+            "recommendations": ["Use a safe package name without special characters or dangerous patterns"],
             "normalized_name": "",
         }
-    
-    # Length constraints
-    if len(package_name) > 214:
-        issues.append("Package name is too long (max 214 characters)")
-    if len(package_name) < 1:
-        issues.append("Package name is too short (min 1 character)")
-    
-    # Character validation
-    if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$", package_name):
-        issues.append("Package name contains invalid characters (only alphanumeric, dots, hyphens, underscores allowed)")
-    
-    # Check for reserved names
-    reserved_names = {
-        "pip", "setuptools", "wheel", "python", "test", "tests", 
-        "src", "docs", "build", "dist", "requirements", "readme"
-    }
-    if package_name.lower() in reserved_names:
-        issues.append(f"'{package_name}' is a reserved name and should not be used")
-    
-    # Best practice checks
-    if package_name != package_name.lower():
-        recommendations.append("Use lowercase for package names (PEP 508)")
-    
-    if "_" in package_name:
-        recommendations.append("Consider using hyphens instead of underscores (PEP 508)")
-    
-    if len(package_name.split("-")) > 3:
-        recommendations.append("Avoid overly complex names with many hyphens")
-    
-    # Check for common typos/patterns
-    if package_name.startswith("-") or package_name.endswith("-"):
-        issues.append("Package name cannot start or end with a hyphen")
-    
-    if package_name.startswith(".") or package_name.endswith("."):
-        issues.append("Package name cannot start or end with a dot")
-    
-    if "--" in package_name or ".." in package_name:
-        issues.append("Package name cannot contain consecutive special characters")
-    
-    # Normalize name for PyPI (convert to lowercase, normalize separators)
-    normalized = re.sub(r"[-_.]+", "-", package_name.lower())
-    
-    return {
-        "valid": len(issues) == 0,
-        "issues": issues,
-        "recommendations": recommendations,
-        "normalized_name": normalized,
-    }
 
 
-async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
+async def validate_pypi_package_name(package_name: str) -> dict[str, Any]:
     """Check if a package name is available and valid on PyPI.
     
     This function validates package name format and checks availability on PyPI.
@@ -114,19 +83,19 @@ async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
         PyPIWorkflowError: For workflow-specific errors
     """
     logger.info(f"Validating package name: {package_name}")
-    
+
     try:
         # First validate format
         format_validation = _validate_package_name_format(package_name)
-        
+
         if not format_validation["valid"] and len(format_validation["issues"]) > 2:
             raise InvalidPackageNameError(package_name)
-        
+
         # Check availability on PyPI
         availability_status = "unknown"
         existing_package_info = None
         similar_packages = []
-        
+
         try:
             async with PyPIClient() as client:
                 # Try to get package info to check if it exists
@@ -144,7 +113,7 @@ async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Could not check availability for {package_name}: {e}")
             availability_status = "unknown"
-        
+
         # If package is taken or format is questionable, find similar packages
         if availability_status == "taken" or not format_validation["valid"]:
             try:
@@ -152,13 +121,13 @@ async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
                 search_query = format_validation["normalized_name"]
                 async with httpx.AsyncClient(timeout=10.0) as http_client:
                     search_url = f"https://pypi.org/search/?q={quote(search_query)}"
-                    # Note: We're not actually parsing HTML here - this would need 
+                    # Note: We're not actually parsing HTML here - this would need
                     # integration with the search functionality for real similar packages
                     # For now, we'll just note that similar package detection is available
                     similar_packages = []  # Placeholder
             except Exception as e:
                 logger.warning(f"Could not search for similar packages: {e}")
-        
+
         # Generate suggestions based on validation results
         suggestions = []
         if availability_status == "taken":
@@ -167,10 +136,10 @@ async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
                 "Consider a more specific or descriptive name",
                 "Add your organization name as a prefix"
             ])
-        
+
         if format_validation["recommendations"]:
             suggestions.extend(format_validation["recommendations"])
-        
+
         return {
             "package_name": package_name,
             "normalized_name": format_validation["normalized_name"],
@@ -188,7 +157,7 @@ async def validate_pypi_package_name(package_name: str) -> Dict[str, Any]:
             "pypi_standards_compliant": format_validation["valid"] and availability_status == "available",
             "ready_for_upload": format_validation["valid"] and availability_status == "available",
         }
-        
+
     except InvalidPackageNameError:
         raise
     except Exception as e:
@@ -204,9 +173,9 @@ async def preview_pypi_package_page(
     author: str = "",
     license_name: str = "MIT",
     home_page: str = "",
-    keywords: List[str] = None,
-    classifiers: List[str] = None,
-) -> Dict[str, Any]:
+    keywords: list[str] = None,
+    classifiers: list[str] = None,
+) -> dict[str, Any]:
     """Generate a preview of how a package page would look on PyPI.
     
     This function creates a preview of the PyPI package page based on the
@@ -235,22 +204,22 @@ async def preview_pypi_package_page(
         PyPIWorkflowError: For preview generation errors
     """
     logger.info(f"Generating preview for package: {package_name}")
-    
+
     if keywords is None:
         keywords = []
     if classifiers is None:
         classifiers = []
-    
+
     try:
         # Validate package name first
         name_validation = _validate_package_name_format(package_name)
         if not name_validation["valid"]:
             raise InvalidPackageNameError(package_name)
-        
+
         # Validate version format
         version_pattern = r"^([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-.]?(a|b|rc)[0-9]*)?(?:\.post[0-9]+)?(?:\.dev[0-9]+)?$"
         version_valid = bool(re.match(version_pattern, version))
-        
+
         # Generate preview content
         preview_sections = {
             "header": {
@@ -280,11 +249,11 @@ async def preview_pypi_package_page(
                 "length": len(description) if description else 0,
             },
         }
-        
+
         # Generate recommendations and warnings
         recommendations = []
         warnings = []
-        
+
         # Check for missing critical information
         if not summary:
             warnings.append("Summary is missing - this appears prominently in search results")
@@ -292,23 +261,23 @@ async def preview_pypi_package_page(
             recommendations.append("Consider a more descriptive summary (current: {len(summary)} chars)")
         elif len(summary) > 200:
             warnings.append("Summary is quite long - consider keeping it under 200 characters")
-        
+
         if not description:
             warnings.append("No description provided - users won't understand what your package does")
         elif len(description) < 100:
             recommendations.append("Consider providing a more detailed description")
-        
+
         if not author:
             warnings.append("Author name is missing")
-        
+
         if not home_page:
             recommendations.append("Consider adding a homepage URL (GitHub, documentation, etc.)")
-        
+
         if not keywords:
             recommendations.append("Add keywords to improve discoverability")
         elif len(keywords) > 10:
             recommendations.append("Consider reducing keywords to the most relevant ones")
-        
+
         if not classifiers:
             recommendations.append("Add PyPI classifiers to categorize your package")
         else:
@@ -316,17 +285,17 @@ async def preview_pypi_package_page(
             has_python_version = any("Python ::" in c for c in classifiers)
             has_topic = any("Topic ::" in c for c in classifiers)
             has_development_status = any("Development Status ::" in c for c in classifiers)
-            
+
             if not has_python_version:
                 recommendations.append("Add Python version classifiers (e.g., 'Programming Language :: Python :: 3.8')")
             if not has_topic:
                 recommendations.append("Add topic classifiers to categorize your package")
             if not has_development_status:
                 recommendations.append("Add development status classifier")
-        
+
         if not version_valid:
             warnings.append("Version format may not follow PEP 440 standards")
-        
+
         # SEO and discoverability analysis
         seo_analysis = {
             "title_optimization": {
@@ -343,10 +312,10 @@ async def preview_pypi_package_page(
                 summary, description, keywords, classifiers
             ),
         }
-        
+
         # Generate rendered preview (simplified HTML-like structure)
         rendered_preview = _generate_html_preview(preview_sections)
-        
+
         return {
             "package_name": package_name,
             "version": version,
@@ -365,7 +334,7 @@ async def preview_pypi_package_page(
             "seo_analysis": seo_analysis,
             "ready_for_upload": len(warnings) == 0 and name_validation["valid"] and version_valid,
         }
-        
+
     except InvalidPackageNameError:
         raise
     except Exception as e:
@@ -374,12 +343,12 @@ async def preview_pypi_package_page(
 
 
 def _calculate_discoverability_score(
-    summary: str, description: str, keywords: List[str], classifiers: List[str]
-) -> Dict[str, Any]:
+    summary: str, description: str, keywords: list[str], classifiers: list[str]
+) -> dict[str, Any]:
     """Calculate a discoverability score based on metadata completeness."""
     score = 0
     max_score = 100
-    
+
     # Summary scoring (25 points)
     if summary:
         if len(summary) >= 20:
@@ -388,7 +357,7 @@ def _calculate_discoverability_score(
             score += 15
         else:
             score += 5
-    
+
     # Description scoring (35 points)
     if description:
         if len(description) >= 500:
@@ -399,7 +368,7 @@ def _calculate_discoverability_score(
             score += 15
         else:
             score += 5
-    
+
     # Keywords scoring (20 points)
     if keywords:
         if len(keywords) >= 5:
@@ -408,7 +377,7 @@ def _calculate_discoverability_score(
             score += 15
         else:
             score += 10
-    
+
     # Classifiers scoring (20 points)
     if classifiers:
         if len(classifiers) >= 5:
@@ -417,9 +386,9 @@ def _calculate_discoverability_score(
             score += 15
         else:
             score += 10
-    
+
     level = "excellent" if score >= 80 else "good" if score >= 60 else "fair" if score >= 40 else "poor"
-    
+
     return {
         "score": score,
         "max_score": max_score,
@@ -428,15 +397,15 @@ def _calculate_discoverability_score(
     }
 
 
-def _calculate_completeness_score(preview_sections: Dict[str, Any]) -> Dict[str, Any]:
+def _calculate_completeness_score(preview_sections: dict[str, Any]) -> dict[str, Any]:
     """Calculate completeness score based on available metadata."""
     score = 0
     max_score = 100
-    
+
     header = preview_sections["header"]
     metadata = preview_sections["metadata"]
     description = preview_sections["description"]
-    
+
     # Essential fields (60 points)
     if header["summary"] and header["summary"] != "No description provided":
         score += 20
@@ -444,7 +413,7 @@ def _calculate_completeness_score(preview_sections: Dict[str, Any]) -> Dict[str,
         score += 15
     if description["content"] and description["content"] != "No detailed description provided":
         score += 25
-    
+
     # Important fields (30 points)
     if metadata["license"]:
         score += 10
@@ -454,15 +423,15 @@ def _calculate_completeness_score(preview_sections: Dict[str, Any]) -> Dict[str,
         score += 5
     if metadata["classifiers"]:
         score += 5
-    
+
     # Nice-to-have fields (10 points)
     if description["length"] > 200:
         score += 5
     if len(metadata["keywords"]) >= 3:
         score += 5
-    
+
     level = "complete" if score >= 80 else "good" if score >= 60 else "basic" if score >= 40 else "incomplete"
-    
+
     return {
         "score": score,
         "max_score": max_score,
@@ -471,12 +440,12 @@ def _calculate_completeness_score(preview_sections: Dict[str, Any]) -> Dict[str,
     }
 
 
-def _generate_html_preview(preview_sections: Dict[str, Any]) -> str:
+def _generate_html_preview(preview_sections: dict[str, Any]) -> str:
     """Generate a simplified HTML preview of the PyPI page."""
     header = preview_sections["header"]
     metadata = preview_sections["metadata"]
     description = preview_sections["description"]
-    
+
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -534,7 +503,7 @@ def _generate_html_preview(preview_sections: Dict[str, Any]) -> str:
     </div>
 </body>
 </html>"""
-    
+
     return html.strip()
 
 
@@ -547,9 +516,9 @@ async def check_pypi_upload_requirements(
     long_description: str = "",
     license_name: str = "",
     home_page: str = "",
-    classifiers: List[str] = None,
+    classifiers: list[str] = None,
     requires_python: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check if package metadata meets PyPI upload requirements.
     
     This function validates all required and recommended metadata fields
@@ -579,16 +548,16 @@ async def check_pypi_upload_requirements(
         PyPIWorkflowError: For validation errors
     """
     logger.info(f"Checking upload requirements for package: {package_name}")
-    
+
     if classifiers is None:
         classifiers = []
-    
+
     try:
         # Validate package name
         name_validation = _validate_package_name_format(package_name)
         if not name_validation["valid"]:
             raise InvalidPackageNameError(package_name)
-        
+
         # Check required fields (according to PyPI)
         required_fields = {
             "name": {
@@ -612,7 +581,7 @@ async def check_pypi_upload_requirements(
                 "requirement": "Required by PyPI",
             },
         }
-        
+
         # Check strongly recommended fields
         recommended_fields = {
             "author_email": {
@@ -646,47 +615,47 @@ async def check_pypi_upload_requirements(
                 "importance": "Medium - compatibility clarity",
             },
         }
-        
+
         # Calculate compliance scores
         required_valid = sum(1 for field in required_fields.values() if field["valid"])
         required_total = len(required_fields)
         required_compliance = (required_valid / required_total) * 100
-        
+
         recommended_valid = sum(1 for field in recommended_fields.values() if field["valid"])
         recommended_total = len(recommended_fields)
         recommended_compliance = (recommended_valid / recommended_total) * 100
-        
+
         # Generate specific validation errors and warnings
         errors = []
         warnings = []
         suggestions = []
-        
+
         for field_name, field_info in required_fields.items():
             if not field_info["valid"]:
                 errors.append(f"Missing or invalid {field_name}: {field_info['requirement']}")
-        
+
         for field_name, field_info in recommended_fields.items():
             if not field_info["valid"]:
                 if field_info["importance"].startswith("High"):
                     warnings.append(f"Missing {field_name}: {field_info['importance']}")
                 else:
                     suggestions.append(f"Consider adding {field_name}: {field_info['importance']}")
-        
+
         # Additional validation checks
         if version and not re.match(r"^[0-9]+\.[0-9]+\.[0-9]+", version):
             warnings.append("Version should follow semantic versioning (e.g., 1.0.0)")
-        
+
         if long_description and len(long_description) > 10000:
             suggestions.append("Long description is quite lengthy - consider summarizing")
-        
+
         if author_email and not re.match(r"^[^@]+@[^@]+\.[^@]+$", author_email):
             warnings.append("Author email format appears invalid")
-        
+
         # Check for common license patterns
         common_licenses = ["MIT", "Apache-2.0", "GPL", "BSD", "LGPL"]
         if license_name and not any(lic in license_name for lic in common_licenses):
             suggestions.append("Consider using a standard license identifier (MIT, Apache-2.0, etc.)")
-        
+
         # Generate upload checklist
         upload_checklist = [
             {
@@ -696,7 +665,7 @@ async def check_pypi_upload_requirements(
             },
             {
                 "item": "Version follows PEP 440",
-                "status": "complete" if required_fields["version"]["valid"] else "incomplete", 
+                "status": "complete" if required_fields["version"]["valid"] else "incomplete",
                 "critical": True,
             },
             {
@@ -705,7 +674,7 @@ async def check_pypi_upload_requirements(
                 "critical": True,
             },
             {
-                "item": "Author contact information provided", 
+                "item": "Author contact information provided",
                 "status": "complete" if recommended_fields["author_email"]["valid"] else "incomplete",
                 "critical": False,
             },
@@ -725,17 +694,17 @@ async def check_pypi_upload_requirements(
                 "critical": False,
             },
         ]
-        
+
         # Determine overall readiness
         can_upload = required_compliance == 100 and len(errors) == 0
         should_upload = can_upload and recommended_compliance >= 60
-        
+
         readiness_level = (
             "ready" if should_upload
             else "can_upload_with_warnings" if can_upload
             else "not_ready"
         )
-        
+
         return {
             "package_name": package_name,
             "version": version,
@@ -761,7 +730,7 @@ async def check_pypi_upload_requirements(
             },
             "next_steps": _generate_next_steps(errors, warnings, suggestions, can_upload),
         }
-        
+
     except InvalidPackageNameError:
         raise
     except Exception as e:
@@ -770,39 +739,39 @@ async def check_pypi_upload_requirements(
 
 
 def _generate_next_steps(
-    errors: List[str], warnings: List[str], suggestions: List[str], can_upload: bool
-) -> List[str]:
+    errors: list[str], warnings: list[str], suggestions: list[str], can_upload: bool
+) -> list[str]:
     """Generate actionable next steps based on validation results."""
     steps = []
-    
+
     if errors:
         steps.append("🚨 Fix critical errors before upload:")
         steps.extend(f"   - {error}" for error in errors[:3])  # Limit to top 3
         if len(errors) > 3:
             steps.append(f"   - ... and {len(errors) - 3} more error(s)")
-    
+
     if can_upload:
         if warnings:
             steps.append("⚠️  Address important warnings:")
             steps.extend(f"   - {warning}" for warning in warnings[:2])
-        
+
         if suggestions:
             steps.append("💡 Consider these improvements:")
             steps.extend(f"   - {suggestion}" for suggestion in suggestions[:2])
-        
+
         steps.append("✅ Ready for upload! Run: twine upload dist/*")
     else:
         steps.append("📋 Complete required fields first, then re-run this check")
-    
+
     return steps
 
 
 async def get_pypi_build_logs(
     package_name: str,
-    version: Optional[str] = None,
+    version: str | None = None,
     platform: str = "all",
     include_details: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrieve and analyze PyPI build logs and distribution information.
     
     This function fetches information about package builds, wheel distributions,
@@ -827,50 +796,50 @@ async def get_pypi_build_logs(
         PyPIWorkflowError: For build log analysis errors
     """
     logger.info(f"Analyzing build logs for package: {package_name}")
-    
+
     try:
         # Get package information from PyPI
         async with PyPIClient() as client:
             package_data = await client.get_package_info(package_name, version=version)
-        
+
         info = package_data["info"]
         releases = package_data.get("releases", {})
         urls = package_data.get("urls", [])
-        
+
         # Get the specific version we're analyzing
         target_version = version or info.get("version")
         if not target_version:
             raise PyPIWorkflowError("Could not determine package version", "get_build_logs")
-        
+
         # Get release files for the target version
         release_files = releases.get(target_version, [])
         if not release_files and urls:
             # Fallback to URLs if releases is empty (latest version)
             release_files = urls
-        
+
         if not release_files:
             raise PyPIWorkflowError(f"No build files found for version {target_version}", "get_build_logs")
-        
+
         # Analyze distributions
         distributions = {
             "wheels": [],
             "source": [],
             "other": [],
         }
-        
+
         total_size = 0
         platforms_supported = set()
         python_versions_supported = set()
-        
+
         for file_info in release_files:
             file_type = file_info.get("packagetype", "unknown")
             filename = file_info.get("filename", "")
             file_size = file_info.get("size", 0)
             upload_time = file_info.get("upload_time_iso_8601", "")
             python_version = file_info.get("python_version", "")
-            
+
             total_size += file_size
-            
+
             file_analysis = {
                 "filename": filename,
                 "type": file_type,
@@ -882,23 +851,23 @@ async def get_pypi_build_logs(
                 "md5_digest": file_info.get("md5_digest", ""),
                 "sha256_digest": file_info.get("digests", {}).get("sha256", ""),
             }
-            
+
             if file_type == "bdist_wheel":
                 # Analyze wheel filename for platform info
                 wheel_analysis = _analyze_wheel_filename(filename)
                 file_analysis.update(wheel_analysis)
                 distributions["wheels"].append(file_analysis)
-                
+
                 if wheel_analysis.get("platform"):
                     platforms_supported.add(wheel_analysis["platform"])
                 if python_version and python_version != "source":
                     python_versions_supported.add(python_version)
-                    
+
             elif file_type == "sdist":
                 distributions["source"].append(file_analysis)
             else:
                 distributions["other"].append(file_analysis)
-        
+
         # Filter by platform if specified
         if platform != "all":
             platform_map = {
@@ -906,45 +875,45 @@ async def get_pypi_build_logs(
                 "macos": ["macosx", "darwin"],
                 "linux": ["linux"],
             }
-            
+
             if platform in platform_map:
                 target_platforms = platform_map[platform]
                 distributions["wheels"] = [
                     wheel for wheel in distributions["wheels"]
                     if any(plat in wheel.get("platform", "") for plat in target_platforms)
                 ]
-        
+
         # Analyze build quality and issues
         build_analysis = _analyze_build_quality(distributions, info)
-        
+
         # Generate recommendations
         recommendations = []
         warnings = []
-        
+
         if not distributions["wheels"]:
             warnings.append("No wheel distributions found - users will need to build from source")
             recommendations.append("Consider building wheels for major platforms (Windows, macOS, Linux)")
-        
+
         if len(distributions["wheels"]) == 1:
             recommendations.append("Consider providing wheels for multiple platforms")
-        
+
         if not distributions["source"]:
             warnings.append("No source distribution found - this is unusual and may cause issues")
-        
+
         # Check for large files
         large_files = [f for f in release_files if f.get("size", 0) > 50 * 1024 * 1024]  # 50MB
         if large_files:
             warnings.append(f"Large files detected ({len(large_files)} files > 50MB)")
             recommendations.append("Consider splitting large packages or using optional dependencies")
-        
+
         # Python version coverage analysis
         if python_versions_supported:
             if "py3" not in python_versions_supported and not any("3." in v for v in python_versions_supported):
                 recommendations.append("Consider providing Python 3 compatible wheels")
-            
+
             if len(python_versions_supported) < 3:
                 recommendations.append("Consider supporting more Python versions for better compatibility")
-        
+
         return {
             "package_name": package_name,
             "version": target_version,
@@ -974,7 +943,7 @@ async def get_pypi_build_logs(
                 "build_health": build_analysis["health_status"],
             },
         }
-        
+
     except (PackageNotFoundError, NetworkError):
         raise
     except Exception as e:
@@ -982,11 +951,11 @@ async def get_pypi_build_logs(
         raise PyPIWorkflowError(f"Failed to analyze build logs: {e}", "get_build_logs") from e
 
 
-def _analyze_wheel_filename(filename: str) -> Dict[str, Any]:
+def _analyze_wheel_filename(filename: str) -> dict[str, Any]:
     """Analyze wheel filename to extract platform and architecture info."""
     # Wheel filename format: {distribution}-{version}(-{build tag})?-{python tag}-{abi tag}-{platform tag}.whl
     parts = filename.replace(".whl", "").split("-")
-    
+
     analysis = {
         "wheel_type": "unknown",
         "platform": "unknown",
@@ -994,18 +963,18 @@ def _analyze_wheel_filename(filename: str) -> Dict[str, Any]:
         "python_implementation": "unknown",
         "abi": "unknown",
     }
-    
+
     if len(parts) >= 5:
         python_tag = parts[-3]
-        abi_tag = parts[-2] 
+        abi_tag = parts[-2]
         platform_tag = parts[-1]
-        
+
         analysis.update({
             "python_tag": python_tag,
             "abi": abi_tag,
             "platform": platform_tag,
         })
-        
+
         # Determine wheel type
         if platform_tag == "any":
             analysis["wheel_type"] = "universal"
@@ -1020,7 +989,7 @@ def _analyze_wheel_filename(filename: str) -> Dict[str, Any]:
             analysis["platform"] = "linux"
         else:
             analysis["wheel_type"] = "platform_specific"
-        
+
         # Determine architecture
         if "x86_64" in platform_tag or "amd64" in platform_tag:
             analysis["architecture"] = "x86_64"
@@ -1028,7 +997,7 @@ def _analyze_wheel_filename(filename: str) -> Dict[str, Any]:
             analysis["architecture"] = "x86"
         elif "arm64" in platform_tag or "aarch64" in platform_tag:
             analysis["architecture"] = "arm64"
-        
+
         # Python implementation
         if python_tag.startswith("cp"):
             analysis["python_implementation"] = "cpython"
@@ -1036,20 +1005,20 @@ def _analyze_wheel_filename(filename: str) -> Dict[str, Any]:
             analysis["python_implementation"] = "pypy"
         elif python_tag == "py2.py3" or python_tag == "py3":
             analysis["python_implementation"] = "universal"
-    
+
     return analysis
 
 
-def _analyze_build_quality(distributions: Dict[str, List], package_info: Dict[str, Any]) -> Dict[str, Any]:
+def _analyze_build_quality(distributions: dict[str, list], package_info: dict[str, Any]) -> dict[str, Any]:
     """Analyze the quality of package builds based on available distributions."""
-    
+
     wheels = distributions["wheels"]
     source = distributions["source"]
-    
+
     quality_score = 0
     max_score = 100
     health_issues = []
-    
+
     # Wheel availability (30 points)
     if wheels:
         quality_score += 30
@@ -1057,44 +1026,44 @@ def _analyze_build_quality(distributions: Dict[str, List], package_info: Dict[st
             quality_score += 10
     else:
         health_issues.append("No wheels available - installation will be slower")
-    
+
     # Source distribution (20 points)
     if source:
         quality_score += 20
     else:
         health_issues.append("No source distribution - may cause installation issues")
-    
+
     # Platform coverage (25 points)
     platforms = set()
     for wheel in wheels:
         if wheel.get("platform"):
             platforms.add(wheel["platform"])
-    
+
     platform_score = min(len(platforms) * 8, 25)  # Up to 25 points for platform coverage
     quality_score += platform_score
-    
+
     if len(platforms) < 2:
         health_issues.append("Limited platform support")
-    
+
     # Python version support (15 points)
     python_versions = set()
     for wheel in wheels:
         if wheel.get("python_version"):
             python_versions.add(wheel["python_version"])
-    
+
     py_version_score = min(len(python_versions) * 3, 15)
     quality_score += py_version_score
-    
+
     # File size reasonableness (10 points)
     total_size = sum(wheel.get("size_bytes", 0) for wheel in wheels)
     if total_size > 0:
         if total_size < 100 * 1024 * 1024:  # Less than 100MB total
             quality_score += 10
-        elif total_size < 500 * 1024 * 1024:  # Less than 500MB total  
+        elif total_size < 500 * 1024 * 1024:  # Less than 500MB total
             quality_score += 5
         else:
             health_issues.append("Very large package size")
-    
+
     # Determine health status
     if quality_score >= 80:
         health_status = "excellent"
@@ -1104,7 +1073,7 @@ def _analyze_build_quality(distributions: Dict[str, List], package_info: Dict[st
         health_status = "fair"
     else:
         health_status = "poor"
-    
+
     return {
         "quality_score": quality_score,
         "max_score": max_score,

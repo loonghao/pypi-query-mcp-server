@@ -1,7 +1,7 @@
 """Package health assessment tools for PyPI packages."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.exceptions import InvalidPackageNameError, NetworkError, SearchError
 from ..tools.health_scorer import assess_pypi_package_health, compare_package_health
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 async def assess_package_health_score(
     package_name: str,
-    version: Optional[str] = None,
+    version: str | None = None,
     include_github_metrics: bool = True
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Assess comprehensive health and quality of a PyPI package.
     
@@ -43,21 +43,21 @@ async def assess_package_health_score(
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
-        
+
     logger.info(f"MCP tool: Assessing health for package {package_name}")
-    
+
     try:
         result = await assess_pypi_package_health(
             package_name=package_name,
             version=version,
             include_github_metrics=include_github_metrics
         )
-        
+
         overall_score = result.get("overall_health", {}).get("score", 0)
         health_level = result.get("overall_health", {}).get("level", "unknown")
         logger.info(f"MCP tool: Health assessment completed for {package_name} - score: {overall_score:.1f}/100 ({health_level})")
         return result
-        
+
     except (InvalidPackageNameError, NetworkError, SearchError) as e:
         logger.error(f"Error assessing health for {package_name}: {e}")
         return {
@@ -91,9 +91,9 @@ async def assess_package_health_score(
 
 
 async def compare_packages_health_scores(
-    package_names: List[str],
+    package_names: list[str],
     include_github_metrics: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Compare health scores across multiple PyPI packages.
     
@@ -120,22 +120,22 @@ async def compare_packages_health_scores(
     """
     if not package_names:
         raise ValueError("Package names list cannot be empty")
-        
+
     logger.info(f"MCP tool: Starting health comparison for {len(package_names)} packages")
-    
+
     try:
         result = await compare_package_health(
             package_names=package_names,
             include_github_metrics=include_github_metrics
         )
-        
+
         comparison_insights = result.get("comparison_insights", {})
         best_package = comparison_insights.get("best_package", {})
         packages_compared = result.get("packages_compared", 0)
-        
+
         logger.info(f"MCP tool: Health comparison completed for {packages_compared} packages - best: {best_package.get('name', 'unknown')} ({best_package.get('score', 0):.1f}/100)")
         return result
-        
+
     except (ValueError, NetworkError, SearchError) as e:
         logger.error(f"Error in health comparison: {e}")
         return {

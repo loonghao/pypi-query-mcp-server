@@ -1,24 +1,21 @@
 """Tests for PyPI analytics functionality."""
 
-import json
-from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
-from pypi_query_mcp.core.exceptions import InvalidPackageNameError, PackageNotFoundError
+from pypi_query_mcp.core.exceptions import InvalidPackageNameError
 from pypi_query_mcp.tools.analytics import (
-    analyze_pypi_competition,
-    get_pypi_package_analytics,
-    get_pypi_package_rankings,
-    get_pypi_security_alerts,
     _analyze_growth_patterns,
     _assess_data_reliability,
     _calculate_quality_score,
     _extract_search_terms,
     _filter_vulnerabilities_by_severity,
     _generate_insights,
+    analyze_pypi_competition,
+    get_pypi_package_analytics,
+    get_pypi_package_rankings,
+    get_pypi_security_alerts,
 )
 
 
@@ -88,7 +85,7 @@ class TestGetPyPIPackageAnalytics:
             mock_client_instance = AsyncMock()
             mock_client_instance.get_package_info.return_value = mock_package_data
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_download_stats_func.return_value = mock_download_stats
             mock_download_trends_func.return_value = {
                 "trend_analysis": {"trend_direction": "increasing"}
@@ -139,7 +136,7 @@ class TestGetPyPIPackageAnalytics:
             mock_client_instance = AsyncMock()
             mock_client_instance.get_package_info.return_value = mock_package_data
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_download_stats_func.return_value = {"downloads": {"last_day": 100}}
 
             # Call function with minimal options
@@ -184,7 +181,7 @@ class TestGetPyPISecurityAlerts:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_osv_response
-            
+
             mock_client_instance = AsyncMock()
             mock_client_instance.post.return_value = mock_response
             mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
@@ -223,7 +220,7 @@ class TestGetPyPISecurityAlerts:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"vulns": []}
-            
+
             mock_client_instance = AsyncMock()
             mock_client_instance.post.return_value = mock_response
             mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
@@ -261,7 +258,7 @@ class TestGetPyPISecurityAlerts:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_osv_response
-            
+
             mock_client_instance = AsyncMock()
             mock_client_instance.post.return_value = mock_response
             mock_httpx_client.return_value.__aenter__.return_value = mock_client_instance
@@ -321,7 +318,7 @@ class TestGetPyPIPackageRankings:
             mock_client_instance = AsyncMock()
             mock_client_instance.get_package_info.return_value = mock_package_data
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_search.return_value = mock_search_results
 
             # Call function
@@ -355,7 +352,7 @@ class TestGetPyPIPackageRankings:
                 "info": {"name": "test-package"}
             }
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_search.return_value = {"packages": []}
 
             # Call function with custom parameters
@@ -421,7 +418,7 @@ class TestAnalyzePyPICompetition:
             mock_client_instance = AsyncMock()
             mock_client_instance.get_package_info.side_effect = mock_get_package_info
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_stats.return_value = {
                 "downloads": {"last_month": 10000}
             }
@@ -457,7 +454,7 @@ class TestAnalyzePyPICompetition:
                 "info": {"name": "test-package", "version": "1.0.0"}
             }
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_find_competitors.return_value = ["competitor1", "competitor2"]
             mock_stats.return_value = {"downloads": {"last_month": 5000}}
 
@@ -498,7 +495,7 @@ class TestHelperFunctions:
             "license": "MIT",
             "author": "Test Author",
         }
-        
+
         score = _calculate_quality_score(high_quality_info)
         assert score >= 80  # Should be high quality score
 
@@ -512,7 +509,7 @@ class TestHelperFunctions:
             "license": "",
             "author": "",
         }
-        
+
         score = _calculate_quality_score(low_quality_info)
         assert score <= 20  # Should be low quality score
 
@@ -529,9 +526,9 @@ class TestHelperFunctions:
                 ],
             }
         }
-        
+
         terms = _extract_search_terms(package_data)
-        
+
         assert "test-web-framework" in terms
         assert "web" in terms
         assert "framework" in terms
@@ -548,15 +545,15 @@ class TestHelperFunctions:
             ],
             "vulnerability_count": 4,
         }
-        
+
         # Filter by HIGH severity
         filtered = _filter_vulnerabilities_by_severity(
             vulnerabilities, "HIGH", include_historical=False
         )
-        
+
         assert filtered["filtered_count"] == 2  # Only HIGH severity, non-withdrawn
         assert all(
-            v["database_specific"]["severity"] == "HIGH" 
+            v["database_specific"]["severity"] == "HIGH"
             for v in filtered["vulnerabilities"]
             if "database_specific" in v
         )
@@ -568,21 +565,21 @@ class TestHelperFunctions:
                 "downloads": {"last_month": 150000}  # High traffic
             }
         }
-        
+
         metadata = {"name": "test-package"}
-        
+
         quality_metrics = {"quality_score": 85}  # High quality
-        
+
         insights = _generate_insights(download_analytics, metadata, quality_metrics)
-        
+
         assert "performance_insights" in insights
         assert "quality_insights" in insights
         assert "recommendations" in insights
-        
+
         # Should identify high traffic
         performance_insights = insights["performance_insights"]
         assert any("High-traffic" in insight for insight in performance_insights)
-        
+
         # Should identify good quality
         quality_insights = insights["quality_insights"]
         assert any("Well-documented" in insight for insight in quality_insights)
@@ -592,14 +589,14 @@ class TestHelperFunctions:
         # All operations successful
         all_successful = [{"data": "test"}, {"data": "test2"}]
         reliability = _assess_data_reliability(all_successful)
-        
+
         assert reliability["reliability_score"] == 100.0
         assert reliability["status"] == "excellent"
-        
+
         # Some operations failed
         mixed_results = [{"data": "test"}, Exception("error"), {"data": "test2"}]
         reliability = _assess_data_reliability(mixed_results)
-        
+
         assert reliability["reliability_score"] < 100.0
         assert reliability["successful_operations"] == 2
         assert reliability["total_operations"] == 3
@@ -613,20 +610,20 @@ class TestHelperFunctions:
                 "last_month": 30000,
             }
         }
-        
+
         download_trends = {
             "trend_analysis": {
                 "trend_direction": "increasing",
                 "peak_day": {"date": "2024-01-15", "downloads": 2000},
             }
         }
-        
+
         growth_analysis = _analyze_growth_patterns(download_stats, download_trends)
-        
+
         assert "growth_indicators" in growth_analysis
         assert "trend_assessment" in growth_analysis
         assert growth_analysis["trend_assessment"] == "increasing"
-        
+
         # Check growth indicators
         indicators = growth_analysis["growth_indicators"]
         assert "daily_momentum" in indicators
@@ -640,7 +637,7 @@ class TestIntegration:
     async def test_full_analytics_workflow(self):
         """Test complete analytics workflow with mocked dependencies."""
         package_name = "requests"
-        
+
         # Mock all external dependencies
         with (
             patch("pypi_query_mcp.tools.analytics.PyPIClient") as mock_pypi_client,
@@ -666,25 +663,25 @@ class TestIntegration:
                 },
                 "releases": {f"2.{i}.0": [{}] for i in range(30, 20, -1)},
             }
-            
+
             mock_client_instance = AsyncMock()
             mock_client_instance.get_package_info.return_value = mock_package_data
             mock_pypi_client.return_value.__aenter__.return_value = mock_client_instance
-            
+
             mock_download_stats.return_value = {
                 "downloads": {"last_month": 50000000},  # Very popular
                 "analysis": {"total_downloads": 50000000}
             }
-            
+
             mock_download_trends.return_value = {
                 "trend_analysis": {"trend_direction": "increasing"}
             }
-            
+
             # Mock OSV response (no vulnerabilities)
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"vulns": []}
-            
+
             mock_httpx_instance = AsyncMock()
             mock_httpx_instance.post.return_value = mock_response
             mock_httpx_client.return_value.__aenter__.return_value = mock_httpx_instance
@@ -704,13 +701,13 @@ class TestIntegration:
                 mock_search.return_value = {
                     "packages": [{"name": package_name}, {"name": "urllib3"}]
                 }
-                
+
                 rankings_result = await get_pypi_package_rankings(package_name)
                 assert rankings_result["package"] == package_name
 
             # Test competition analysis
             competition_result = await analyze_pypi_competition(
-                package_name, 
+                package_name,
                 competitor_packages=["urllib3", "httpx"],
                 analysis_depth="basic"
             )

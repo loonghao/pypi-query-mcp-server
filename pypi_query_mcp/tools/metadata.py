@@ -5,8 +5,7 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
+from typing import Any
 
 import httpx
 
@@ -28,7 +27,7 @@ class PyPIMetadataClient:
 
     def __init__(
         self,
-        api_token: Optional[str] = None,
+        api_token: str | None = None,
         test_pypi: bool = False,
         timeout: float = 60.0,
         max_retries: int = 3,
@@ -65,7 +64,7 @@ class PyPIMetadataClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-        
+
         if self.api_token:
             headers["Authorization"] = f"token {self.api_token}"
 
@@ -99,9 +98,9 @@ class PyPIMetadataClient:
         return package_name.strip()
 
     async def _make_request(
-        self, 
-        method: str, 
-        url: str, 
+        self,
+        method: str,
+        url: str,
         **kwargs
     ) -> httpx.Response:
         """Make HTTP request with retry logic."""
@@ -111,7 +110,7 @@ class PyPIMetadataClient:
             try:
                 logger.debug(f"Making {method} request to {url} (attempt {attempt + 1})")
                 response = await self._client.request(method, url, **kwargs)
-                
+
                 # Handle authentication errors
                 if response.status_code == 401:
                     raise PyPIAuthenticationError(
@@ -127,7 +126,7 @@ class PyPIMetadataClient:
                     retry_after = response.headers.get("Retry-After")
                     retry_after_int = int(retry_after) if retry_after else None
                     raise RateLimitError(retry_after_int)
-                
+
                 return response
 
             except httpx.TimeoutException as e:
@@ -153,29 +152,29 @@ class PyPIMetadataClient:
             # Try to get package info first
             api_url = f"{self.api_url}/{package_name}/json"
             response = await self._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 return False  # Package doesn't exist
             elif response.status_code != 200:
                 return False  # Other error
-            
+
             # For now, we assume if we have a valid token, we have permission
             # In a real implementation, we would check the package maintainers
             return self.api_token is not None
-            
+
         except Exception:
             return False
 
 
 async def update_package_metadata(
     package_name: str,
-    description: Optional[str] = None,
-    keywords: Optional[List[str]] = None,
-    classifiers: Optional[List[str]] = None,
-    api_token: Optional[str] = None,
+    description: str | None = None,
+    keywords: list[str] | None = None,
+    classifiers: list[str] | None = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     dry_run: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Update package metadata including description, keywords, and classifiers.
     
@@ -187,7 +186,7 @@ async def update_package_metadata(
         description: New package description
         keywords: List of keywords for the package
         classifiers: List of PyPI classifiers (e.g., programming language, license)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         dry_run: If True, only validate changes without applying them
         
@@ -201,27 +200,27 @@ async def update_package_metadata(
         NetworkError: For network-related errors
     """
     logger.info(f"{'DRY RUN: ' if dry_run else ''}Updating metadata for {package_name}")
-    
+
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     async with PyPIMetadataClient(api_token=api_token, test_pypi=test_pypi) as client:
         package_name = client._validate_package_name(package_name)
-        
+
         try:
             # Get current package information
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to fetch package data")
-            
+
             package_data = response.json()
             current_info = package_data.get("info", {})
-            
+
             # Verify ownership if not dry run
             if not dry_run:
                 has_permission = await client._verify_package_ownership(package_name)
@@ -229,12 +228,12 @@ async def update_package_metadata(
                     raise PyPIPermissionError(
                         "Insufficient permissions to modify package metadata"
                     )
-            
+
             # Validate and prepare metadata updates
             metadata_updates = {}
             validation_errors = []
             recommendations = []
-            
+
             # Process description
             if description is not None:
                 description = description.strip()
@@ -244,7 +243,7 @@ async def update_package_metadata(
                     metadata_updates["description"] = description
                     if len(description) < 50:
                         recommendations.append("Consider expanding the description for better discoverability")
-            
+
             # Process keywords
             if keywords is not None:
                 if not isinstance(keywords, list):
@@ -259,15 +258,15 @@ async def update_package_metadata(
                                 valid_keywords.append(clean_keyword)
                             else:
                                 validation_errors.append(f"Invalid keyword: '{keyword}'")
-                    
+
                     if len(valid_keywords) > 20:
                         validation_errors.append("Too many keywords (max 20)")
                         valid_keywords = valid_keywords[:20]
-                    
+
                     metadata_updates["keywords"] = valid_keywords
                     if len(valid_keywords) < 3:
                         recommendations.append("Consider adding more keywords for better discoverability")
-            
+
             # Process classifiers
             if classifiers is not None:
                 if not isinstance(classifiers, list):
@@ -286,7 +285,7 @@ async def update_package_metadata(
                         "Natural Language",
                         "Typing",
                     ]
-                    
+
                     valid_classifiers = []
                     for classifier in classifiers:
                         if isinstance(classifier, str) and classifier.strip():
@@ -298,16 +297,16 @@ async def update_package_metadata(
                                 # Still include it but add a warning
                                 valid_classifiers.append(clean_classifier)
                                 recommendations.append(f"Verify classifier format: '{clean_classifier}'")
-                    
+
                     metadata_updates["classifiers"] = valid_classifiers
-            
+
             # Compare with current metadata
             current_metadata = {
                 "description": current_info.get("summary", ""),
                 "keywords": current_info.get("keywords", "").split(",") if current_info.get("keywords") else [],
                 "classifiers": current_info.get("classifiers", []),
             }
-            
+
             # Calculate changes
             changes_detected = {}
             for key, new_value in metadata_updates.items():
@@ -324,7 +323,7 @@ async def update_package_metadata(
                         "new": new_value,
                         "changed": False,
                     }
-            
+
             result = {
                 "package_name": package_name,
                 "dry_run": dry_run,
@@ -336,7 +335,7 @@ async def update_package_metadata(
                 "repository": "TestPyPI" if test_pypi else "PyPI",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             # Add implementation guidance
             if not dry_run and not validation_errors:
                 result["implementation_note"] = {
@@ -357,10 +356,10 @@ async def update_package_metadata(
             elif dry_run:
                 result["success"] = len(validation_errors) == 0
                 result["message"] = "Dry run completed successfully" if not validation_errors else "Validation errors found"
-            
+
             logger.info(f"Metadata update analysis completed for {package_name}")
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError, PyPIPermissionError):
             raise
         except Exception as e:
@@ -370,16 +369,16 @@ async def update_package_metadata(
 
 async def manage_package_urls(
     package_name: str,
-    homepage: Optional[str] = None,
-    documentation: Optional[str] = None,
-    repository: Optional[str] = None,
-    download_url: Optional[str] = None,
-    bug_tracker: Optional[str] = None,
-    api_token: Optional[str] = None,
+    homepage: str | None = None,
+    documentation: str | None = None,
+    repository: str | None = None,
+    download_url: str | None = None,
+    bug_tracker: str | None = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     validate_urls: bool = True,
     dry_run: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manage package URLs including homepage, documentation, and repository links.
     
@@ -390,7 +389,7 @@ async def manage_package_urls(
         repository: Source code repository URL
         download_url: Package download URL
         bug_tracker: Bug tracker URL
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         validate_urls: Whether to validate URL accessibility
         dry_run: If True, only validate changes without applying them
@@ -405,28 +404,28 @@ async def manage_package_urls(
         NetworkError: For network-related errors
     """
     logger.info(f"{'DRY RUN: ' if dry_run else ''}Managing URLs for {package_name}")
-    
+
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     async with PyPIMetadataClient(api_token=api_token, test_pypi=test_pypi) as client:
         package_name = client._validate_package_name(package_name)
-        
+
         try:
             # Get current package information
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to fetch package data")
-            
+
             package_data = response.json()
             current_info = package_data.get("info", {})
             current_urls = current_info.get("project_urls", {}) or {}
-            
+
             # Verify ownership if not dry run
             if not dry_run:
                 has_permission = await client._verify_package_ownership(package_name)
@@ -434,13 +433,13 @@ async def manage_package_urls(
                     raise PyPIPermissionError(
                         "Insufficient permissions to modify package URLs"
                     )
-            
+
             # Validate and prepare URL updates
             url_updates = {}
             validation_errors = []
             validation_results = {}
             recommendations = []
-            
+
             # URL validation regex
             url_pattern = re.compile(
                 r'^https?://'  # http:// or https://
@@ -449,7 +448,7 @@ async def manage_package_urls(
                 r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
                 r'(?::\d+)?'  # optional port
                 r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-            
+
             urls_to_process = {
                 "homepage": homepage,
                 "documentation": documentation,
@@ -457,28 +456,28 @@ async def manage_package_urls(
                 "download_url": download_url,
                 "bug_tracker": bug_tracker,
             }
-            
+
             # Process each URL
             for url_type, url_value in urls_to_process.items():
                 if url_value is not None:
                     url_value = url_value.strip()
-                    
+
                     if not url_value:
                         # Empty string means remove the URL
                         url_updates[url_type] = None
                         continue
-                    
+
                     # Validate URL format
                     if not url_pattern.match(url_value):
                         validation_errors.append(f"Invalid {url_type} URL format: {url_value}")
                         continue
-                    
+
                     # Check for HTTPS
                     if not url_value.startswith('https://'):
                         recommendations.append(f"Consider using HTTPS for {url_type}: {url_value}")
-                    
+
                     url_updates[url_type] = url_value
-                    
+
                     # Validate URL accessibility if requested
                     if validate_urls:
                         try:
@@ -490,10 +489,10 @@ async def manage_package_urls(
                                 "status_code": head_response.status_code,
                                 "error": None,
                             }
-                            
+
                             if head_response.status_code >= 400:
                                 recommendations.append(f"{url_type} URL returned status {head_response.status_code}: {url_value}")
-                                
+
                         except Exception as e:
                             validation_results[url_type] = {
                                 "url": url_value,
@@ -502,7 +501,7 @@ async def manage_package_urls(
                                 "error": str(e),
                             }
                             recommendations.append(f"Could not validate {url_type} URL: {url_value}")
-            
+
             # Compare with current URLs
             current_url_mapping = {
                 "homepage": current_info.get("home_page", ""),
@@ -511,7 +510,7 @@ async def manage_package_urls(
                 "download_url": current_info.get("download_url", ""),
                 "bug_tracker": current_urls.get("Bug Tracker", "") or current_urls.get("Issues", ""),
             }
-            
+
             # Calculate changes
             changes_detected = {}
             for url_type, new_url in url_updates.items():
@@ -521,16 +520,16 @@ async def manage_package_urls(
                     "new": new_url,
                     "changed": new_url != current_url,
                 }
-            
+
             # Generate URL quality score
             total_urls = len([url for url in url_updates.values() if url])
             https_urls = len([url for url in url_updates.values() if url and url.startswith('https://')])
             accessible_urls = len([r for r in validation_results.values() if r.get('accessible', False)])
-            
+
             url_quality_score = 0
             if total_urls > 0:
                 url_quality_score = (https_urls * 0.3 + accessible_urls * 0.7) / total_urls * 100
-            
+
             result = {
                 "package_name": package_name,
                 "dry_run": dry_run,
@@ -544,7 +543,7 @@ async def manage_package_urls(
                 "repository": "TestPyPI" if test_pypi else "PyPI",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             # Add implementation guidance
             if not dry_run and not validation_errors:
                 result["implementation_note"] = {
@@ -570,10 +569,10 @@ async def manage_package_urls(
             elif dry_run:
                 result["success"] = len(validation_errors) == 0
                 result["message"] = "URL validation completed successfully" if not validation_errors else "URL validation errors found"
-            
+
             logger.info(f"URL management analysis completed for {package_name}")
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError, PyPIPermissionError):
             raise
         except Exception as e:
@@ -584,10 +583,10 @@ async def manage_package_urls(
 async def set_package_visibility(
     package_name: str,
     visibility: str,
-    api_token: Optional[str] = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     confirm_action: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Set package visibility (private/public) for organization packages.
     
@@ -597,7 +596,7 @@ async def set_package_visibility(
     Args:
         package_name: Name of the package to modify
         visibility: Visibility setting ("public" or "private")
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         confirm_action: Explicit confirmation required for visibility changes
         
@@ -611,31 +610,31 @@ async def set_package_visibility(
         NetworkError: For network-related errors
     """
     logger.info(f"Setting visibility for {package_name} to {visibility}")
-    
+
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     visibility = visibility.lower().strip()
     if visibility not in ["public", "private"]:
         raise ValueError("Visibility must be 'public' or 'private'")
-    
+
     async with PyPIMetadataClient(api_token=api_token, test_pypi=test_pypi) as client:
         package_name = client._validate_package_name(package_name)
-        
+
         try:
             # Get current package information
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to fetch package data")
-            
+
             package_data = response.json()
             current_info = package_data.get("info", {})
-            
+
             # Check if confirmation is provided for private visibility changes
             if visibility == "private" and not confirm_action:
                 return {
@@ -648,23 +647,23 @@ async def set_package_visibility(
                     "repository": "TestPyPI" if test_pypi else "PyPI",
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-            
+
             # Verify ownership
             has_permission = await client._verify_package_ownership(package_name)
             if not has_permission:
                 raise PyPIPermissionError(
                     "Insufficient permissions to modify package visibility"
                 )
-            
+
             # Analyze current visibility status
             # PyPI packages are public by default, private packages require special setup
             current_visibility = "public"  # Default assumption
-            
+
             # Check if package shows signs of being part of an organization
             author = current_info.get("author", "")
             maintainer = current_info.get("maintainer", "")
             home_page = current_info.get("home_page", "")
-            
+
             organization_indicators = []
             if "@" not in author and len(author.split()) == 1:
                 organization_indicators.append("Single-word author (possible organization)")
@@ -672,7 +671,7 @@ async def set_package_visibility(
                 org_match = re.search(r'github\.com/([^/]+)/', home_page)
                 if org_match:
                     organization_indicators.append(f"GitHub organization: {org_match.group(1)}")
-            
+
             # Implementation limitations
             limitations = [
                 "PyPI does not provide a direct API for visibility management",
@@ -680,7 +679,7 @@ async def set_package_visibility(
                 "Individual user packages are public by default",
                 "Visibility changes require organization-level permissions",
             ]
-            
+
             result = {
                 "package_name": package_name,
                 "current_visibility": current_visibility,
@@ -690,7 +689,7 @@ async def set_package_visibility(
                 "repository": "TestPyPI" if test_pypi else "PyPI",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             # Provide guidance based on requested visibility
             if visibility == "private":
                 result.update({
@@ -725,7 +724,7 @@ async def set_package_visibility(
                     "message": "Package is already public (PyPI default)",
                     "note": "No action needed - PyPI packages are public by default",
                 })
-            
+
             # Add package information for context
             result["package_info"] = {
                 "version": current_info.get("version", ""),
@@ -734,10 +733,10 @@ async def set_package_visibility(
                 "license": current_info.get("license", ""),
                 "upload_time": current_info.get("upload_time", ""),
             }
-            
+
             logger.info(f"Visibility analysis completed for {package_name}")
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError, PyPIPermissionError):
             raise
         except Exception as e:
@@ -748,11 +747,11 @@ async def set_package_visibility(
 async def manage_package_keywords(
     package_name: str,
     action: str,
-    keywords: Optional[List[str]] = None,
-    api_token: Optional[str] = None,
+    keywords: list[str] | None = None,
+    api_token: str | None = None,
     test_pypi: bool = False,
     dry_run: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manage package keywords and search tags.
     
@@ -760,7 +759,7 @@ async def manage_package_keywords(
         package_name: Name of the package to modify
         action: Action to perform ("add", "remove", "replace", "list")
         keywords: List of keywords to add/remove/replace
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         dry_run: If True, only simulate changes without applying them
         
@@ -774,34 +773,34 @@ async def manage_package_keywords(
         NetworkError: For network-related errors
     """
     logger.info(f"{'DRY RUN: ' if dry_run else ''}Managing keywords for {package_name}: {action}")
-    
+
     package_name = package_name.strip()
     if not package_name:
         raise InvalidPackageNameError(package_name)
-    
+
     action = action.lower().strip()
     if action not in ["add", "remove", "replace", "list"]:
         raise ValueError("Action must be 'add', 'remove', 'replace', or 'list'")
-    
+
     if action in ["add", "remove", "replace"] and not keywords:
         raise ValueError(f"Keywords required for '{action}' action")
-    
+
     async with PyPIMetadataClient(api_token=api_token, test_pypi=test_pypi) as client:
         package_name = client._validate_package_name(package_name)
-        
+
         try:
             # Get current package information
             api_url = f"{client.api_url}/{package_name}/json"
             response = await client._make_request("GET", api_url)
-            
+
             if response.status_code == 404:
                 raise PackageNotFoundError(package_name)
             elif response.status_code != 200:
                 raise PyPIServerError(response.status_code, "Failed to fetch package data")
-            
+
             package_data = response.json()
             current_info = package_data.get("info", {})
-            
+
             # Verify ownership if not dry run and not just listing
             if not dry_run and action != "list":
                 has_permission = await client._verify_package_ownership(package_name)
@@ -809,11 +808,11 @@ async def manage_package_keywords(
                     raise PyPIPermissionError(
                         "Insufficient permissions to modify package keywords"
                     )
-            
+
             # Extract current keywords
             current_keywords_str = current_info.get("keywords", "") or ""
             current_keywords = [kw.strip() for kw in current_keywords_str.split(",") if kw.strip()]
-            
+
             # Also check classifiers for topic-related keywords
             classifiers = current_info.get("classifiers", [])
             topic_keywords = []
@@ -823,7 +822,7 @@ async def manage_package_keywords(
                     topic = classifier.replace("Topic ::", "").strip()
                     topic_parts = [part.strip().lower().replace(" ", "-") for part in topic.split("::")]
                     topic_keywords.extend(topic_parts)
-            
+
             result = {
                 "package_name": package_name,
                 "action": action,
@@ -833,7 +832,7 @@ async def manage_package_keywords(
                 "repository": "TestPyPI" if test_pypi else "PyPI",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-            
+
             if action == "list":
                 # Analyze keyword effectiveness
                 keyword_analysis = {
@@ -842,12 +841,12 @@ async def manage_package_keywords(
                     "keyword_quality": {},
                     "recommendations": [],
                 }
-                
+
                 # Analyze each keyword
                 for keyword in current_keywords:
                     quality_score = 0
                     issues = []
-                    
+
                     # Length check
                     if len(keyword) < 3:
                         issues.append("Too short")
@@ -855,13 +854,13 @@ async def manage_package_keywords(
                         issues.append("Too long")
                     else:
                         quality_score += 20
-                    
+
                     # Character check
                     if re.match(r'^[a-zA-Z0-9\s\-_]+$', keyword):
                         quality_score += 20
                     else:
                         issues.append("Contains special characters")
-                    
+
                     # Common programming terms
                     programming_terms = [
                         "python", "web", "api", "cli", "gui", "framework", "library",
@@ -870,37 +869,37 @@ async def manage_package_keywords(
                     ]
                     if any(term in keyword.lower() for term in programming_terms):
                         quality_score += 30
-                    
+
                     # Uniqueness (not in topic keywords)
                     if keyword.lower() not in [tk.lower() for tk in topic_keywords]:
                         quality_score += 30
-                    
+
                     keyword_analysis["keyword_quality"][keyword] = {
                         "score": quality_score,
                         "issues": issues,
                         "quality": "high" if quality_score >= 70 else "medium" if quality_score >= 40 else "low"
                     }
-                
+
                 # Generate recommendations
                 if len(current_keywords) < 3:
                     keyword_analysis["recommendations"].append("Add more keywords for better discoverability")
                 elif len(current_keywords) > 15:
                     keyword_analysis["recommendations"].append("Consider reducing keywords to focus on most relevant ones")
-                
+
                 low_quality_keywords = [kw for kw, data in keyword_analysis["keyword_quality"].items() if data["quality"] == "low"]
                 if low_quality_keywords:
                     keyword_analysis["recommendations"].append(f"Improve or replace low-quality keywords: {', '.join(low_quality_keywords)}")
-                
+
                 result["keyword_analysis"] = keyword_analysis
                 result["success"] = True
-                
+
                 logger.info(f"Listed {len(current_keywords)} keywords for {package_name}")
                 return result
-            
+
             # Process keyword modifications
             validation_errors = []
             new_keywords = current_keywords.copy()
-            
+
             # Validate input keywords
             if keywords:
                 processed_keywords = []
@@ -908,26 +907,26 @@ async def manage_package_keywords(
                     if not isinstance(keyword, str):
                         validation_errors.append(f"Invalid keyword type: {type(keyword)}")
                         continue
-                    
+
                     clean_keyword = keyword.strip().lower()
                     if not clean_keyword:
                         continue
-                    
+
                     if len(clean_keyword) > 50:
                         validation_errors.append(f"Keyword too long: '{keyword}'")
                         continue
-                    
+
                     if not re.match(r'^[a-zA-Z0-9\s\-_]+$', clean_keyword):
                         validation_errors.append(f"Invalid keyword characters: '{keyword}'")
                         continue
-                    
+
                     processed_keywords.append(clean_keyword)
-                
+
                 keywords = processed_keywords
-            
+
             # Apply keyword actions
             changes_made = []
-            
+
             if action == "add":
                 for keyword in keywords:
                     if keyword not in [kw.lower() for kw in new_keywords]:
@@ -935,7 +934,7 @@ async def manage_package_keywords(
                         changes_made.append(f"Added: {keyword}")
                     else:
                         changes_made.append(f"Already exists: {keyword}")
-            
+
             elif action == "remove":
                 for keyword in keywords:
                     # Case-insensitive removal
@@ -945,23 +944,23 @@ async def manage_package_keywords(
                         changes_made.append(f"Removed: {keyword}")
                     else:
                         changes_made.append(f"Not found: {keyword}")
-            
+
             elif action == "replace":
                 new_keywords = keywords
                 changes_made.append(f"Replaced all keywords with {len(keywords)} new keywords")
-            
+
             # Validate final keyword list
             if len(new_keywords) > 20:
                 validation_errors.append("Too many keywords (max 20)")
                 new_keywords = new_keywords[:20]
-            
+
             # Calculate keyword quality score
             keyword_quality_score = 0
             if new_keywords:
                 valid_keywords = len([kw for kw in new_keywords if len(kw) >= 3 and len(kw) <= 20])
                 unique_keywords = len(set(kw.lower() for kw in new_keywords))
                 keyword_quality_score = (valid_keywords * 0.5 + unique_keywords * 0.5) / len(new_keywords) * 100
-            
+
             result.update({
                 "validation_errors": validation_errors,
                 "keywords_before": current_keywords,
@@ -970,7 +969,7 @@ async def manage_package_keywords(
                 "keyword_quality_score": round(keyword_quality_score, 1),
                 "changes_detected": new_keywords != current_keywords,
             })
-            
+
             # Add implementation guidance
             if not dry_run and not validation_errors and new_keywords != current_keywords:
                 result["implementation_note"] = {
@@ -983,17 +982,17 @@ async def manage_package_keywords(
             elif dry_run:
                 result["success"] = len(validation_errors) == 0
                 result["message"] = "Keyword changes validated successfully" if not validation_errors else "Keyword validation errors found"
-            
+
             # Generate recommendations
             recommendations = []
             if len(new_keywords) < 3:
                 recommendations.append("Consider adding more keywords for better discoverability")
-            
+
             # Check for redundancy with topic keywords
             redundant_keywords = [kw for kw in new_keywords if kw.lower() in [tk.lower() for tk in topic_keywords]]
             if redundant_keywords:
                 recommendations.append(f"Keywords already covered by classifiers: {', '.join(redundant_keywords)}")
-            
+
             # Suggest related keywords based on package description
             description = current_info.get("summary", "") or current_info.get("description", "")
             if description:
@@ -1005,12 +1004,12 @@ async def manage_package_keywords(
                 suggested = [word for word in description_words if word in common_tech_words and word not in [kw.lower() for kw in new_keywords]]
                 if suggested:
                     recommendations.append(f"Consider adding keywords from description: {', '.join(set(suggested[:5]))}")
-            
+
             result["recommendations"] = recommendations
-            
+
             logger.info(f"Keyword management completed for {package_name}")
             return result
-            
+
         except (PackageNotFoundError, PyPIServerError, PyPIPermissionError):
             raise
         except Exception as e:

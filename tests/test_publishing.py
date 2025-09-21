@@ -1,11 +1,9 @@
 """Tests for PyPI publishing and account management tools."""
 
-import asyncio
-import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import httpx
 import pytest
@@ -16,8 +14,6 @@ from pypi_query_mcp.core.exceptions import (
     PackageNotFoundError,
     PyPIAuthenticationError,
     PyPIPermissionError,
-    PyPIServerError,
-    PyPIUploadError,
     RateLimitError,
 )
 from pypi_query_mcp.tools.publishing import (
@@ -37,7 +33,7 @@ class TestPyPIPublishingClient:
     def test_init_default(self):
         """Test client initialization with default values."""
         client = PyPIPublishingClient()
-        
+
         assert client.api_token is None
         assert client.test_pypi is False
         assert client.timeout == 60.0
@@ -49,7 +45,7 @@ class TestPyPIPublishingClient:
     def test_init_test_pypi(self):
         """Test client initialization for TestPyPI."""
         client = PyPIPublishingClient(test_pypi=True)
-        
+
         assert client.test_pypi is True
         assert "test.pypi.org" in client.upload_url
         assert "test.pypi.org" in client.api_url
@@ -58,7 +54,7 @@ class TestPyPIPublishingClient:
         """Test client initialization with API token."""
         token = "pypi-test-token"
         client = PyPIPublishingClient(api_token=token)
-        
+
         assert client.api_token == token
         assert "Authorization" in client._client.headers
         assert client._client.headers["Authorization"] == f"token {token}"
@@ -66,7 +62,7 @@ class TestPyPIPublishingClient:
     def test_validate_package_name_valid(self):
         """Test package name validation with valid names."""
         client = PyPIPublishingClient()
-        
+
         valid_names = [
             "requests",
             "django-rest-framework",
@@ -77,7 +73,7 @@ class TestPyPIPublishingClient:
             "a1",
             "package-1.0",
         ]
-        
+
         for name in valid_names:
             result = client._validate_package_name(name)
             assert result == name.strip()
@@ -85,7 +81,7 @@ class TestPyPIPublishingClient:
     def test_validate_package_name_invalid(self):
         """Test package name validation with invalid names."""
         client = PyPIPublishingClient()
-        
+
         invalid_names = [
             "",
             "   ",
@@ -97,7 +93,7 @@ class TestPyPIPublishingClient:
             "in--valid",
             "in valid",
         ]
-        
+
         for name in invalid_names:
             with pytest.raises(InvalidPackageNameError):
                 client._validate_package_name(name)
@@ -109,10 +105,10 @@ class TestPyPIPublishingClient:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_request.return_value = mock_response
-            
+
             client = PyPIPublishingClient()
             response = await client._make_request("GET", "https://example.com")
-            
+
             assert response == mock_response
             mock_request.assert_called_once_with("GET", "https://example.com")
 
@@ -123,9 +119,9 @@ class TestPyPIPublishingClient:
             mock_response = Mock()
             mock_response.status_code = 401
             mock_request.return_value = mock_response
-            
+
             client = PyPIPublishingClient()
-            
+
             with pytest.raises(PyPIAuthenticationError):
                 await client._make_request("GET", "https://example.com")
 
@@ -136,9 +132,9 @@ class TestPyPIPublishingClient:
             mock_response = Mock()
             mock_response.status_code = 403
             mock_request.return_value = mock_response
-            
+
             client = PyPIPublishingClient()
-            
+
             with pytest.raises(PyPIPermissionError):
                 await client._make_request("GET", "https://example.com")
 
@@ -150,12 +146,12 @@ class TestPyPIPublishingClient:
             mock_response.status_code = 429
             mock_response.headers = {"Retry-After": "60"}
             mock_request.return_value = mock_response
-            
+
             client = PyPIPublishingClient()
-            
+
             with pytest.raises(RateLimitError) as exc_info:
                 await client._make_request("GET", "https://example.com")
-            
+
             assert exc_info.value.retry_after == 60
 
     @pytest.mark.asyncio
@@ -163,12 +159,12 @@ class TestPyPIPublishingClient:
         """Test HTTP request with network error and retry logic."""
         with patch.object(httpx.AsyncClient, 'request') as mock_request:
             mock_request.side_effect = httpx.NetworkError("Connection failed")
-            
+
             client = PyPIPublishingClient(max_retries=1, retry_delay=0.01)
-            
+
             with pytest.raises(NetworkError):
                 await client._make_request("GET", "https://example.com")
-            
+
             # Should retry once (initial + 1 retry = 2 calls)
             assert mock_request.call_count == 2
 
@@ -178,7 +174,7 @@ class TestPyPIPublishingClient:
         with patch.object(PyPIPublishingClient, 'close') as mock_close:
             async with PyPIPublishingClient() as client:
                 assert client is not None
-            
+
             mock_close.assert_called_once()
 
 
@@ -190,14 +186,14 @@ class TestUploadPackageToPyPI:
         """Create temporary distribution files for testing."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
+
             # Create fake distribution files
             wheel_file = temp_path / "test_package-1.0.0-py3-none-any.whl"
             sdist_file = temp_path / "test_package-1.0.0.tar.gz"
-            
+
             wheel_file.write_bytes(b"fake wheel content")
             sdist_file.write_bytes(b"fake sdist content")
-            
+
             yield [str(wheel_file), str(sdist_file)]
 
     @pytest.mark.asyncio
@@ -210,7 +206,7 @@ class TestUploadPackageToPyPI:
     async def test_upload_missing_files(self):
         """Test upload with missing distribution files."""
         missing_files = ["/nonexistent/file1.whl", "/nonexistent/file2.tar.gz"]
-        
+
         with pytest.raises(FileNotFoundError):
             await upload_package_to_pypi(missing_files)
 
@@ -220,21 +216,21 @@ class TestUploadPackageToPyPI:
         temp_dir = Path(temp_dist_files[0]).parent
         invalid_file = temp_dir / "invalid.txt"
         invalid_file.write_text("not a distribution file")
-        
+
         # Should skip invalid files and proceed with valid ones
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_request.return_value = mock_response
-                
+
                 result = await upload_package_to_pypi(
                     temp_dist_files + [str(invalid_file)],
                     test_pypi=True
                 )
-                
+
                 # Should only process the 2 valid distribution files
                 assert result["total_files"] == 2
 
@@ -243,7 +239,7 @@ class TestUploadPackageToPyPI:
         """Test upload with authentication failure."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": False}
-            
+
             with pytest.raises(PyPIAuthenticationError):
                 await upload_package_to_pypi(temp_dist_files, api_token="invalid-token")
 
@@ -252,23 +248,23 @@ class TestUploadPackageToPyPI:
         """Test successful upload."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_request.return_value = mock_response
-                
+
                 result = await upload_package_to_pypi(
                     temp_dist_files,
                     api_token="valid-token",
                     test_pypi=True
                 )
-                
+
                 assert result["successful_uploads"] == 2
                 assert result["failed_uploads"] == 0
                 assert result["target_repository"] == "TestPyPI"
                 assert len(result["upload_results"]) == 2
-                
+
                 for upload_result in result["upload_results"]:
                     assert upload_result["status"] == "success"
 
@@ -277,21 +273,21 @@ class TestUploadPackageToPyPI:
         """Test upload with existing file and skip_existing=True."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
                 mock_response = Mock()
                 mock_response.status_code = 409  # Conflict - file exists
                 mock_request.return_value = mock_response
-                
+
                 result = await upload_package_to_pypi(
                     temp_dist_files,
                     skip_existing=True,
                     test_pypi=True
                 )
-                
+
                 assert result["successful_uploads"] == 0
                 assert result["skipped_uploads"] == 2
-                
+
                 for upload_result in result["upload_results"]:
                     assert upload_result["status"] == "skipped"
                     assert "already exists" in upload_result["error"]
@@ -301,24 +297,24 @@ class TestUploadPackageToPyPI:
         """Test upload with verification enabled."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
                 # Mock upload response
                 upload_response = Mock()
                 upload_response.status_code = 200
-                
+
                 # Mock verification response
                 verify_response = Mock()
                 verify_response.status_code = 200
-                
+
                 mock_request.side_effect = [upload_response, upload_response, verify_response, verify_response]
-                
+
                 result = await upload_package_to_pypi(
                     temp_dist_files,
                     verify_uploads=True,
                     test_pypi=True
                 )
-                
+
                 assert result["successful_uploads"] == 2
                 assert "verification_results" in result
                 assert len(result["verification_results"]) == 2
@@ -332,7 +328,7 @@ class TestCheckPyPICredentials:
         """Test credential check with no token provided."""
         with patch.dict(os.environ, {}, clear=True):
             result = await check_pypi_credentials()
-            
+
             assert result["valid"] is False
             assert "No API token provided" in result["error"]
 
@@ -340,7 +336,7 @@ class TestCheckPyPICredentials:
     async def test_invalid_token_format(self):
         """Test credential check with invalid token format."""
         result = await check_pypi_credentials(api_token="invalid-format")
-        
+
         assert result["valid"] is False
         assert "Invalid token format" in result["error"]
 
@@ -351,12 +347,12 @@ class TestCheckPyPICredentials:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_request.return_value = mock_response
-            
+
             result = await check_pypi_credentials(
                 api_token="pypi-valid-token",
                 test_pypi=True
             )
-            
+
             assert result["valid"] is True
             assert result["repository"] == "TestPyPI"
 
@@ -365,9 +361,9 @@ class TestCheckPyPICredentials:
         """Test credential check with invalid credentials."""
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_request.side_effect = PyPIAuthenticationError("Invalid token", 401)
-            
+
             result = await check_pypi_credentials(api_token="pypi-invalid-token")
-            
+
             assert result["valid"] is False
             assert result["status_code"] == 401
 
@@ -378,9 +374,9 @@ class TestCheckPyPICredentials:
             mock_response = Mock()
             mock_response.status_code = 403
             mock_request.return_value = mock_response
-            
+
             result = await check_pypi_credentials(api_token="pypi-limited-token")
-            
+
             assert result["valid"] is False
             assert result["status_code"] == 403
             assert "permissions" in result["error"]
@@ -402,7 +398,7 @@ class TestGetPyPIUploadHistory:
             mock_response = Mock()
             mock_response.status_code = 404
             mock_request.return_value = mock_response
-            
+
             with pytest.raises(PackageNotFoundError):
                 await get_pypi_upload_history("nonexistent-package")
 
@@ -449,15 +445,15 @@ class TestGetPyPIUploadHistory:
                 ],
             },
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await get_pypi_upload_history("test-package", limit=10)
-            
+
             assert result["package_name"] == "test-package"
             assert len(result["upload_history"]) == 2
             assert result["statistics"]["total_uploads"] == 2
@@ -465,7 +461,7 @@ class TestGetPyPIUploadHistory:
             assert result["statistics"]["yanked_uploads"] == 1
             assert result["statistics"]["package_types"]["bdist_wheel"] == 1
             assert result["statistics"]["package_types"]["sdist"] == 1
-            
+
             # Check that uploads are sorted by time (newest first)
             assert result["upload_history"][0]["version"] == "1.0.0"
             assert result["upload_history"][1]["version"] == "0.9.0"
@@ -488,15 +484,15 @@ class TestGetPyPIUploadHistory:
                 for i in range(1, 11)  # 10 versions
             },
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await get_pypi_upload_history("test-package", limit=5)
-            
+
             # Should only return 5 uploads due to limit
             assert len(result["upload_history"]) == 5
             assert result["limit_applied"] == 5
@@ -526,7 +522,7 @@ class TestDeletePyPIRelease:
             confirm_deletion=False,
             dry_run=False
         )
-        
+
         assert result["success"] is False
         assert "not confirmed" in result["error"]
         assert "PRODUCTION PyPI deletion" in result["safety_warnings"]
@@ -547,20 +543,20 @@ class TestDeletePyPIRelease:
                 {"filename": "test_package-1.0.0-py3-none-any.whl", "packagetype": "bdist_wheel"},
             ],
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_release_data
             mock_request.return_value = mock_response
-            
+
             result = await delete_pypi_release(
                 "test-package",
                 "1.0.0",
                 dry_run=True,
                 test_pypi=True
             )
-            
+
             assert result["success"] is True
             assert result["dry_run"] is True
             assert result["action"] == "dry_run_completed"
@@ -573,7 +569,7 @@ class TestDeletePyPIRelease:
             mock_response = Mock()
             mock_response.status_code = 404
             mock_request.return_value = mock_response
-            
+
             with pytest.raises(PackageNotFoundError):
                 await delete_pypi_release("nonexistent-package", "1.0.0")
 
@@ -584,18 +580,18 @@ class TestDeletePyPIRelease:
             "info": {"name": "test-package", "version": "1.0.0"},
             "urls": [{"filename": "test_package-1.0.0.tar.gz"}],
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             # First call for verification, second for deletion
             verify_response = Mock()
             verify_response.status_code = 200
             verify_response.json.return_value = mock_release_data
-            
+
             delete_response = Mock()
             delete_response.status_code = 403
-            
+
             mock_request.side_effect = [verify_response, delete_response]
-            
+
             result = await delete_pypi_release(
                 "test-package",
                 "1.0.0",
@@ -603,7 +599,7 @@ class TestDeletePyPIRelease:
                 dry_run=False,
                 test_pypi=True
             )
-            
+
             assert result["success"] is False
             assert result["action"] == "permission_denied"
 
@@ -614,18 +610,18 @@ class TestDeletePyPIRelease:
             "info": {"name": "test-package", "version": "1.0.0"},
             "urls": [{"filename": "test_package-1.0.0.tar.gz"}],
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             # First call for verification, second for deletion
             verify_response = Mock()
             verify_response.status_code = 200
             verify_response.json.return_value = mock_release_data
-            
+
             delete_response = Mock()
             delete_response.status_code = 204
-            
+
             mock_request.side_effect = [verify_response, delete_response]
-            
+
             result = await delete_pypi_release(
                 "test-package",
                 "1.0.0",
@@ -633,7 +629,7 @@ class TestDeletePyPIRelease:
                 dry_run=False,
                 test_pypi=True
             )
-            
+
             assert result["success"] is True
             assert result["action"] == "deleted"
 
@@ -674,25 +670,25 @@ class TestManagePyPIMaintainers:
                 "license": "MIT",
             },
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_pypi_maintainers("test-package", "list")
-            
+
             assert result["success"] is True
             assert result["action"] == "list"
             assert result["maintainer_count"] == 2
             assert len(result["current_maintainers"]) == 2
-            
+
             # Check author information
             author_info = next(m for m in result["current_maintainers"] if m["type"] == "author")
             assert author_info["name"] == "John Doe"
             assert author_info["email"] == "john@example.com"
-            
+
             # Check maintainer information
             maintainer_info = next(m for m in result["current_maintainers"] if m["type"] == "maintainer")
             assert maintainer_info["name"] == "Jane Smith"
@@ -704,19 +700,19 @@ class TestManagePyPIMaintainers:
         mock_package_data = {
             "info": {"name": "test-package", "author": "John Doe"},
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             result = await manage_pypi_maintainers(
-                "test-package", 
-                "add", 
+                "test-package",
+                "add",
                 username="newuser"
             )
-            
+
             assert result["success"] is False
             assert "not supported via API" in result["error"]
             assert "alternative_method" in result
@@ -729,7 +725,7 @@ class TestManagePyPIMaintainers:
             mock_response = Mock()
             mock_response.status_code = 404
             mock_request.return_value = mock_response
-            
+
             with pytest.raises(PackageNotFoundError):
                 await manage_pypi_maintainers("nonexistent-package", "list")
 
@@ -742,7 +738,7 @@ class TestGetPyPIAccountInfo:
         """Test account info with invalid credentials."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": False}
-            
+
             with pytest.raises(PyPIAuthenticationError):
                 await get_pypi_account_info(api_token="invalid-token")
 
@@ -751,26 +747,26 @@ class TestGetPyPIAccountInfo:
         """Test successful account info retrieval."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True, "repository": "PyPI"}
-            
+
             result = await get_pypi_account_info(api_token="valid-token")
-            
+
             assert result["repository"] == "PyPI"
             assert result["credentials"]["valid"] is True
             assert "account_info" in result
             assert "recommendations" in result
             assert "useful_links" in result
-            
+
             # Check account info structure
             account_info = result["account_info"]
             assert account_info["api_token_valid"] is True
             assert "account_limitations" in account_info
             assert "features" in account_info
             assert "user_projects" in account_info
-            
+
             # Check recommendations
             assert len(result["recommendations"]) > 0
             assert any("two-factor" in rec for rec in result["recommendations"])
-            
+
             # Check useful links
             links = result["useful_links"]
             assert "account_settings" in links
@@ -782,9 +778,9 @@ class TestGetPyPIAccountInfo:
         """Test account info for TestPyPI."""
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True, "repository": "TestPyPI"}
-            
+
             result = await get_pypi_account_info(test_pypi=True)
-            
+
             assert result["repository"] == "TestPyPI"
             assert result["test_pypi"] is True
             assert "test.pypi.org" in result["useful_links"]["account_settings"]
@@ -797,36 +793,36 @@ class TestIntegration:
     async def test_end_to_end_workflow_simulation(self):
         """Test simulated end-to-end workflow."""
         # This test simulates a complete workflow without making real API calls
-        
+
         # 1. Check credentials
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             cred_result = await check_pypi_credentials(api_token="pypi-test-token")
             assert cred_result["valid"] is True
-        
+
         # 2. Get account info
         with patch('pypi_query_mcp.tools.publishing.check_pypi_credentials') as mock_cred:
             mock_cred.return_value = {"valid": True}
-            
+
             account_result = await get_pypi_account_info(api_token="pypi-test-token")
             assert "account_info" in account_result
-        
+
         # 3. Check upload history
         mock_package_data = {
             "info": {"name": "test-package"},
             "releases": {"1.0.0": [{"filename": "test-1.0.0.tar.gz"}]},
         }
-        
+
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_package_data
             mock_request.return_value = mock_response
-            
+
             history_result = await get_pypi_upload_history("test-package")
             assert len(history_result["upload_history"]) == 1
-        
+
         # 4. Test dry run deletion
         with patch.object(PyPIPublishingClient, '_make_request') as mock_request:
             mock_response = Mock()
@@ -836,7 +832,7 @@ class TestIntegration:
                 "urls": [{"filename": "test-1.0.0.tar.gz"}],
             }
             mock_request.return_value = mock_response
-            
+
             delete_result = await delete_pypi_release(
                 "test-package", "1.0.0", dry_run=True
             )

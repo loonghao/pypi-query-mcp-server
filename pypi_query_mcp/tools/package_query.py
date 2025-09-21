@@ -6,6 +6,7 @@ from typing import Any
 
 from ..core import InvalidPackageNameError, NetworkError, PyPIClient, PyPIError
 from ..core.version_utils import sort_versions_semantically
+from ..security.validation import secure_validate_package_name, SecurityValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,18 @@ async def query_package_info(package_name: str) -> dict[str, Any]:
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
+
+    # Comprehensive security validation
+    try:
+        validation_result = secure_validate_package_name(package_name)
+        if not validation_result["valid"] or not validation_result["secure"]:
+            security_issues = validation_result.get("security_warnings", []) + validation_result.get("issues", [])
+            raise SecurityValidationError(f"Package name security validation failed: {'; '.join(security_issues)}")
+    except SecurityValidationError:
+        raise InvalidPackageNameError(f"Invalid package name: {package_name}")
+    except Exception as e:
+        logger.warning(f"Package name validation error for '{package_name}': {e}")
+        raise InvalidPackageNameError(f"Package name validation failed: {package_name}")
 
     logger.info(f"Querying package info for: {package_name}")
 

@@ -1,7 +1,7 @@
 """Security vulnerability scanning tools for PyPI packages."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.exceptions import InvalidPackageNameError, NetworkError, SearchError
 from ..tools.security import bulk_security_scan, scan_package_security
@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 async def scan_pypi_package_security(
     package_name: str,
-    version: Optional[str] = None,
+    version: str | None = None,
     include_dependencies: bool = True,
-    severity_filter: Optional[str] = None
-) -> Dict[str, Any]:
+    severity_filter: str | None = None
+) -> dict[str, Any]:
     """
     Scan a PyPI package for security vulnerabilities.
     
@@ -45,9 +45,9 @@ async def scan_pypi_package_security(
     """
     if not package_name or not package_name.strip():
         raise InvalidPackageNameError(package_name)
-        
+
     logger.info(f"MCP tool: Scanning security for package {package_name}")
-    
+
     try:
         result = await scan_package_security(
             package_name=package_name,
@@ -55,10 +55,10 @@ async def scan_pypi_package_security(
             include_dependencies=include_dependencies,
             severity_filter=severity_filter
         )
-        
+
         logger.info(f"MCP tool: Security scan completed for {package_name} - found {result.get('security_summary', {}).get('total_vulnerabilities', 0)} vulnerabilities")
         return result
-        
+
     except (InvalidPackageNameError, NetworkError, SearchError) as e:
         logger.error(f"Error scanning security for {package_name}: {e}")
         return {
@@ -87,10 +87,10 @@ async def scan_pypi_package_security(
 
 
 async def bulk_scan_package_security(
-    package_names: List[str],
+    package_names: list[str],
     include_dependencies: bool = False,
     severity_threshold: str = "medium"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Perform bulk security scanning of multiple PyPI packages.
     
@@ -117,19 +117,19 @@ async def bulk_scan_package_security(
     """
     if not package_names:
         raise ValueError("Package names list cannot be empty")
-        
+
     logger.info(f"MCP tool: Starting bulk security scan of {len(package_names)} packages")
-    
+
     try:
         result = await bulk_security_scan(
             package_names=package_names,
             include_dependencies=include_dependencies,
             severity_threshold=severity_threshold
         )
-        
+
         logger.info(f"MCP tool: Bulk security scan completed - {result.get('summary', {}).get('packages_with_vulnerabilities', 0)} packages have vulnerabilities")
         return result
-        
+
     except (ValueError, NetworkError, SearchError) as e:
         logger.error(f"Error in bulk security scan: {e}")
         return {

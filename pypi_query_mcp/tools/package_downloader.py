@@ -13,6 +13,7 @@ from ..core.exceptions import (
     NetworkError,
     PackageNotFoundError,
 )
+from ..security.validation import SecurityValidationError, secure_validate_file_path
 from .dependency_resolver import DependencyResolver
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,17 @@ class PackageDownloader:
     """Downloads PyPI packages and their dependencies."""
 
     def __init__(self, download_dir: str = "./downloads"):
+        # Validate download directory path for security
+        try:
+            validation_result = secure_validate_file_path(download_dir)
+            if not validation_result["valid"] or not validation_result["secure"]:
+                security_issues = validation_result.get("security_warnings", []) + validation_result.get("issues", [])
+                raise SecurityValidationError(f"Download directory path security validation failed: {'; '.join(security_issues)}")
+        except SecurityValidationError:
+            raise
+        except Exception as e:
+            raise SecurityValidationError(f"Download directory validation error: {e}")
+
         self.download_dir = Path(download_dir)
         self.download_dir.mkdir(parents=True, exist_ok=True)
         self.resolver = DependencyResolver()
@@ -230,8 +242,25 @@ class PackageDownloader:
         if not url or not filename:
             raise ValueError("Invalid file info: missing URL or filename")
 
+        # Validate filename for security (prevent path traversal)
+        try:
+            # Extract just the filename component to prevent directory traversal
+            safe_filename = Path(filename).name
+            if not safe_filename or safe_filename != filename:
+                raise SecurityValidationError(f"Unsafe filename detected: {filename}")
+
+            full_path = str(self.download_dir / safe_filename)
+            validation_result = secure_validate_file_path(full_path, str(self.download_dir))
+            if not validation_result["valid"] or not validation_result["secure"]:
+                security_issues = validation_result.get("security_warnings", []) + validation_result.get("issues", [])
+                raise SecurityValidationError(f"Download file path security validation failed: {'; '.join(security_issues)}")
+        except SecurityValidationError:
+            raise
+        except Exception as e:
+            raise SecurityValidationError(f"Download file path validation error: {e}")
+
         # Create package-specific directory
-        file_path = self.download_dir / filename
+        file_path = self.download_dir / safe_filename
 
         logger.info(f"Downloading {filename} from {url}")
 

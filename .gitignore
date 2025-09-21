@@ -20,7 +20,7 @@ target/*
 /build/
 /coverage.xml
 /.zip/
-.env
+# Environment files no longer used - using .pypirc instead
 dist/
 .vscode/
 .ruff_cache/

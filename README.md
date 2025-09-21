@@ -6,7 +6,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/mcpypi.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/mcpypi/)
 [![Python versions](https://img.shields.io/pypi/pyversions/mcpypi.svg?style=for-the-badge&logo=python&logoColor=white)](https://pypi.org/project/mcpypi/)
 [![Downloads](https://img.shields.io/pypi/dm/mcpypi.svg?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/mcpypi/)
-[![License](https://img.shields.io/pypi/l/mcpypi.svg?style=for-the-badge)](https://github.com/loonghao/pypi-query-mcp-server/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/mcpypi.svg?style=for-the-badge)](https://github.com/rsp2k/pypi-query-mcp-server/blob/main/LICENSE)
 
 </div>
 
@@ -171,10 +171,38 @@ is MIT license compatible"
 <summary><b>Development Setup</b></summary>
 
 ```bash
-git clone https://github.com/loonghao/pypi-query-mcp-server.git
+git clone https://github.com/rsp2k/pypi-query-mcp-server.git
 cd pypi-query-mcp-server
 uv sync
 uv run pypi-query-mcp
+```
+
+**Building and Publishing:**
+```bash
+# Build the package
+uv run python -m build
+
+# Publish to PyPI (requires ~/.pypirc configuration)
+uv run twine upload dist/*
+
+# Publish to TestPyPI
+uv run twine upload --repository testpypi dist/*
+```
+
+**PyPI Configuration:**
+Create `~/.pypirc` with your API tokens:
+```ini
+[distutils]
+index-servers = pypi testpypi
+
+[pypi]
+username = __token__
+password = pypi-your-production-token-here
+
+[testpypi]
+repository = https://test.pypi.org/legacy/
+username = __token__
+password = pypi-your-test-token-here
 ```
 
 </details>
@@ -299,8 +327,11 @@ Add to your Windsurf MCP configuration (`~/.codeium/windsurf/mcp_config.json`):
 If you're using [Claude Code](https://claude.ai/code), you can connect to this MCP server using the `claude mcp` command:
 
 ```bash
-# Connect to the PyPI Query MCP server
+# Connect to the PyPI Query MCP server (global - available in all Claude Code instances)
 claude mcp add mcpypi -- uvx mcpypi
+
+# Connect for local development or single Claude Code instance only
+claude mcp add -s local mcpypi -- uvx mcpypi
 
 # Or with custom environment variables
 claude mcp add mcpypi -- uvx mcpypi \
@@ -311,8 +342,11 @@ claude mcp add mcpypi -- uvx mcpypi \
 # List connected MCP servers
 claude mcp list
 
-# Remove the server if needed
+# Remove the server (global scope)
 claude mcp remove mcpypi
+
+# Remove the server (local scope)
+claude mcp remove -s local mcpypi
 ```
 
 Once connected, you can use all the MCP tools directly in Claude Code sessions by asking questions like:

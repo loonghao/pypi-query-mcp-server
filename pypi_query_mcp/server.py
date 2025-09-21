@@ -1,19 +1,24 @@
 """FastMCP server for PyPI package queries."""
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
 import click
 from fastmcp import FastMCP
 
-from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError, SearchError
+from .core.exceptions import (
+    InvalidPackageNameError,
+    NetworkError,
+    PackageNotFoundError,
+    SearchError,
+)
+from .security.input_validator import validate_tool_params
 from .prompts import (
     analyze_daily_trends,
-    analyze_environment_dependencies,
     analyze_package_quality,
     audit_security_risks,
-    check_outdated_packages,
     compare_packages,
     find_trending_packages,
     generate_migration_checklist,
@@ -25,63 +30,63 @@ from .prompts import (
     track_package_updates,
 )
 from .tools import (
+    analyze_pypi_competition,
+    # License tools
+    analyze_pypi_package_license,
+    # Requirements tools
+    analyze_requirements_file_tool,
+    # Health tools
+    assess_package_health_score,
+    # Security tools
+    bulk_scan_package_security,
+    check_bulk_license_compliance,
+    check_pypi_credentials,
+    check_pypi_upload_requirements,
     check_python_compatibility,
+    compare_multiple_requirements_files,
+    compare_packages_health_scores,
+    delete_pypi_release,
     download_package_with_dependencies,
     find_alternatives,
     get_compatible_python_versions,
     get_package_download_stats,
     get_package_download_trends,
+    get_pypi_account_info,
+    get_pypi_build_logs,
+    get_pypi_maintainer_contacts,
+    # Analytics tools
+    get_pypi_package_analytics,
+    get_pypi_package_rankings,
+    get_pypi_package_recommendations,
+    # Community tools
+    get_pypi_package_reviews,
+    get_pypi_security_alerts,
+    get_pypi_trending_today,
+    get_pypi_upload_history,
     get_top_packages_by_downloads,
     get_trending_packages,
+    manage_package_keywords,
+    manage_package_urls,
+    manage_pypi_maintainers,
+    manage_pypi_package_discussions,
+    # Discovery tools
+    monitor_pypi_new_releases,
+    preview_pypi_package_page,
     query_package_dependencies,
     query_package_info,
     query_package_versions,
     resolve_package_dependencies,
+    scan_pypi_package_security,
     search_by_category,
     search_packages,
-    # Publishing tools
-    upload_package_to_pypi,
-    check_pypi_credentials,
-    get_pypi_upload_history,
-    delete_pypi_release,
-    manage_pypi_maintainers,
-    get_pypi_account_info,
+    search_pypi_by_maintainer,
+    set_package_visibility,
     # Metadata tools
     update_package_metadata,
-    manage_package_urls,
-    set_package_visibility,
-    manage_package_keywords,
-    # Analytics tools
-    get_pypi_package_analytics,
-    get_pypi_security_alerts,
-    get_pypi_package_rankings,
-    analyze_pypi_competition,
-    # Discovery tools
-    monitor_pypi_new_releases,
-    get_pypi_trending_today,
-    search_pypi_by_maintainer,
-    get_pypi_package_recommendations,
+    # Publishing tools
+    upload_package_to_pypi,
     # Workflow tools
     validate_pypi_package_name,
-    preview_pypi_package_page,
-    check_pypi_upload_requirements,
-    get_pypi_build_logs,
-    # Community tools
-    get_pypi_package_reviews,
-    manage_pypi_package_discussions,
-    get_pypi_maintainer_contacts,
-    # Security tools
-    bulk_scan_package_security,
-    scan_pypi_package_security,
-    # License tools
-    analyze_pypi_package_license,
-    check_bulk_license_compliance,
-    # Health tools
-    assess_package_health_score,
-    compare_packages_health_scores,
-    # Requirements tools
-    analyze_requirements_file_tool,
-    compare_multiple_requirements_files,
 )
 
 # Configure logging
@@ -92,6 +97,293 @@ logger = logging.getLogger(__name__)
 
 # Create FastMCP application
 mcp = FastMCP("PyPI Query MCP Server")
+
+# ============================================================================
+# MCP RESOURCES - Browse PyPI packages directly in Claude Code resource panel
+# ============================================================================
+
+@mcp.resource("pypi://top-packages")
+async def top_pypi_packages() -> dict[str, Any]:
+    """Browse the top 20 most downloaded PyPI packages."""
+    try:
+        result = await get_top_packages_by_downloads(period="month", limit=20)
+        return {
+            "title": "Top 20 PyPI Packages (Monthly Downloads)",
+            "packages": result.get("packages", []),
+            "metadata": {
+                "period": "month",
+                "total_packages": len(result.get("packages", [])),
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch top packages: {e}")
+        return {"error": str(e), "packages": []}
+
+
+@mcp.resource("pypi://trending")
+async def trending_pypi_packages() -> dict[str, Any]:
+    """Browse trending PyPI packages gaining popularity."""
+    try:
+        result = await get_trending_packages(category="all", limit=15)
+        return {
+            "title": "Trending PyPI Packages",
+            "packages": result.get("packages", []),
+            "metadata": {
+                "category": "all",
+                "total_packages": len(result.get("packages", [])),
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch trending packages: {e}")
+        return {"error": str(e), "packages": []}
+
+
+@mcp.resource("pypi://package/{package_name}")
+async def package_details(package_name: str) -> dict[str, Any]:
+    """Get comprehensive details for a specific PyPI package."""
+    try:
+        # Get basic package info
+        package_info = await query_package_info(package_name)
+
+        # Get additional metadata
+        versions = await query_package_versions(package_name)
+        dependencies = await query_package_dependencies(package_name)
+
+        return {
+            "title": f"PyPI Package: {package_name}",
+            "package_info": package_info,
+            "versions": versions.get("versions", [])[:10],  # Latest 10 versions
+            "dependencies": dependencies.get("dependencies", {}),
+            "metadata": {
+                "package_name": package_name,
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch package details for {package_name}: {e}")
+        return {"error": str(e), "package_name": package_name}
+
+
+@mcp.resource("pypi://search/{query}")
+async def search_results(query: str) -> dict[str, Any]:
+    """Search results for PyPI packages matching the query."""
+    try:
+        result = await search_packages(query, limit=15)
+        return {
+            "title": f"PyPI Search Results: {query}",
+            "query": query,
+            "packages": result.get("packages", []),
+            "metadata": {
+                "total_results": len(result.get("packages", [])),
+                "search_query": query,
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to search for {query}: {e}")
+        return {"error": str(e), "query": query, "packages": []}
+
+
+@mcp.resource("pypi://category/{category}")
+async def category_packages(category: str) -> dict[str, Any]:
+    """Browse PyPI packages by category (web, data-science, security, etc.)."""
+    try:
+        result = await search_by_category(category, limit=20)
+        return {
+            "title": f"PyPI Category: {category.title().replace('-', ' ')}",
+            "category": category,
+            "packages": result.get("packages", []),
+            "metadata": {
+                "category": category,
+                "total_packages": len(result.get("packages", [])),
+                "last_updated": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch category {category}: {e}")
+        return {"error": str(e), "category": category, "packages": []}
+
+
+@mcp.resource("pypi://health-report/{package_name}")
+async def package_health_report(package_name: str) -> dict[str, Any]:
+    """Comprehensive health and security report for a PyPI package."""
+    try:
+        from .tools.health_tools import assess_package_health_score
+        from .tools.license_tools import analyze_pypi_package_license
+        from .tools.security_tools import scan_pypi_package_security
+
+        # Get comprehensive analysis
+        health = await assess_package_health_score(package_name)
+        security = await scan_pypi_package_security(package_name)
+        license_info = await analyze_pypi_package_license(package_name)
+
+        return {
+            "title": f"Health Report: {package_name}",
+            "package_name": package_name,
+            "health_score": health,
+            "security_analysis": security,
+            "license_analysis": license_info,
+            "metadata": {
+                "report_generated": datetime.now(timezone.utc).isoformat(),
+                "analysis_types": ["health", "security", "license"]
+            }
+        }
+    except Exception as e:
+        logger.error(f"Failed to generate health report for {package_name}: {e}")
+        return {"error": str(e), "package_name": package_name}
+
+
+# ============================================================================
+# MCP PROMPTS - Structured prompts for common PyPI workflows
+# ============================================================================
+
+@mcp.prompt()
+def analyze_package_for_project(
+    package_name: str,
+    project_type: str = "web application",
+    requirements: str = "security, performance, maintenance"
+) -> str:
+    """Generate a comprehensive package analysis prompt for project decision-making."""
+    return f"""
+Analyze the PyPI package '{package_name}' for use in a {project_type} project.
+
+Please evaluate the package across these dimensions:
+- {requirements}
+
+Include in your analysis:
+1. Package health score and maintenance status
+2. Security vulnerabilities and risk assessment  
+3. License compatibility for commercial use
+4. Performance characteristics and dependencies
+5. Community adoption and support
+6. Alternative packages for comparison
+
+Use mcpypi tools to gather comprehensive data and provide actionable recommendations.
+"""
+
+
+@mcp.prompt()
+def audit_project_dependencies(
+    requirements_content: str = "# Paste your requirements.txt content here",
+    compliance_target: str = "production deployment"
+) -> str:
+    """Generate a security and compliance audit prompt for project dependencies."""
+    return f"""
+Perform a comprehensive security and compliance audit for {compliance_target}.
+
+Requirements to analyze:
+```
+{requirements_content}
+```
+
+Please provide:
+1. Security vulnerability scan for all packages
+2. License compliance analysis 
+3. Package health assessment
+4. Outdated package identification
+5. Dependency conflict detection
+6. Recommended updates and alternatives
+
+Use mcpypi tools to perform bulk analysis and generate an executive summary with risk levels.
+"""
+
+
+@mcp.prompt()
+def choose_packages_for_use_case(
+    use_case: str,
+    python_version: str = "3.11",
+    constraints: str = "lightweight, well-maintained, secure"
+) -> str:
+    """Generate a package recommendation prompt for specific use cases."""
+    return f"""
+Recommend the best PyPI packages for: {use_case}
+
+Requirements:
+- Python {python_version} compatibility
+- Prioritize packages that are: {constraints}
+
+Please provide:
+1. Top 3-5 package recommendations with rationale
+2. Comparative analysis (health scores, security, performance)
+3. Integration considerations and dependencies
+4. Community adoption and maintenance status
+5. License compatibility summary
+6. Getting started examples
+
+Use mcpypi tools to research packages, compare alternatives, and validate recommendations.
+"""
+
+
+@mcp.prompt()
+def investigate_security_issue(
+    package_name: str,
+    issue_description: str = "general security assessment"
+) -> str:
+    """Generate a security investigation prompt for PyPI packages."""
+    return f"""
+Investigate security concerns for PyPI package '{package_name}'.
+
+Issue context: {issue_description}
+
+Please investigate:
+1. Known vulnerabilities (CVEs, security advisories)
+2. Package legitimacy and maintainer trust
+3. Dependency chain security analysis
+4. Recent releases and changelog review
+5. Community reports and discussions
+6. Risk mitigation strategies
+
+Use mcpypi security tools to scan for vulnerabilities, analyze the package ecosystem, and provide security recommendations.
+"""
+
+
+@mcp.prompt()
+def plan_migration_strategy(
+    from_package: str,
+    to_package: str = "recommend alternatives",
+    migration_scope: str = "full replacement"
+) -> str:
+    """Generate a package migration planning prompt."""
+    return f"""
+Plan a migration strategy from '{from_package}' to {to_package}.
+
+Migration scope: {migration_scope}
+
+Please provide:
+1. Comparative analysis between packages
+2. Breaking changes and compatibility assessment
+3. Step-by-step migration timeline
+4. Risk analysis and mitigation strategies
+5. Testing requirements and validation
+6. Rollback procedures
+
+Use mcpypi tools to compare packages, analyze dependencies, health scores, and provide detailed migration guidance.
+"""
+
+
+@mcp.prompt()
+def monitor_package_ecosystem(
+    packages: str = "requests, numpy, pandas",
+    monitoring_period: str = "monthly"
+) -> str:
+    """Generate a package ecosystem monitoring prompt."""
+    package_list = [pkg.strip() for pkg in packages.split(",")]
+
+    return f"""
+Set up {monitoring_period} monitoring for these critical packages: {', '.join(package_list)}
+
+Please create a monitoring dashboard that tracks:
+1. Security vulnerabilities and alerts
+2. Version releases and changelogs  
+3. Health score trends and maintenance status
+4. Download statistics and adoption trends
+5. Community discussions and issues
+6. License changes and compliance impact
+
+Use mcpypi tools to establish baseline metrics and recommend monitoring automation strategies.
+"""
 
 
 @mcp.tool()
@@ -119,6 +411,10 @@ async def get_package_info(package_name: str) -> dict[str, Any]:
         NetworkError: For network-related errors
     """
     try:
+        # Comprehensive input validation
+        validated_params = validate_tool_params("get_package_info", package_name=package_name)
+        package_name = validated_params["package_name"]
+
         logger.info(f"MCP tool: Querying package info for {package_name}")
         result = await query_package_info(package_name)
         logger.info(f"Successfully retrieved info for package: {package_name}")
@@ -705,7 +1001,7 @@ async def search_pypi_packages(
         logger.info(f"MCP search_pypi_packages parameters: python_versions={python_versions}, licenses={licenses}, categories={categories}")
         logger.info(f"MCP search_pypi_packages parameters: min_downloads={min_downloads}, maintenance_status={maintenance_status}, has_wheels={has_wheels}")
         logger.info(f"MCP search_pypi_packages parameters: sort_by={sort_by}, sort_desc={sort_desc}, semantic_search={semantic_search}")
-        
+
         result = await search_packages(
             query=query,
             limit=limit,
@@ -742,7 +1038,7 @@ async def search_pypi_packages(
         traceback.print_exc()
         return {
             "error": f"Search failed: {e}",
-            "error_type": "SearchError", 
+            "error_type": "SearchError",
             "query": query,
             "limit": limit,
             "packages": [],
@@ -788,7 +1084,7 @@ async def search_packages_by_category(
         logger.error(f"Error searching category '{category}': {e}")
         return {
             "error": f"Category search failed: {e}",
-            "error_type": "SearchError", 
+            "error_type": "SearchError",
             "category": category,
             "limit": limit,
         }
@@ -893,7 +1189,7 @@ async def upload_package_to_pypi_tool(
     
     Args:
         distribution_paths: List of paths to distribution files (.whl, .tar.gz)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to upload to TestPyPI instead of production PyPI
         skip_existing: Skip files that already exist on PyPI
         verify_uploads: Verify uploads after completion
@@ -938,7 +1234,7 @@ async def check_pypi_credentials_tool(
     helping ensure proper credentials before performing upload operations.
     
     Args:
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to check against TestPyPI instead of production PyPI
         
     Returns:
@@ -976,7 +1272,7 @@ async def get_pypi_upload_history_tool(
     
     Args:
         package_name: Name of the package to get upload history for
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to check TestPyPI instead of production PyPI
         limit: Maximum number of uploads to return
         
@@ -1020,7 +1316,7 @@ async def delete_pypi_release_tool(
     Args:
         package_name: Name of the package
         version: Version to delete
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         confirm_deletion: Explicit confirmation required for actual deletion
         dry_run: If True, only simulate the deletion without actually performing it
@@ -1069,7 +1365,7 @@ async def manage_pypi_maintainers_tool(
         package_name: Name of the package
         action: Action to perform ('list', 'add', 'remove')
         username: Username to add/remove (required for add/remove actions)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -1108,7 +1404,7 @@ async def get_pypi_account_info_tool(
     limitations, features, and useful links for PyPI account management.
     
     Args:
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -1151,7 +1447,7 @@ async def update_package_metadata_tool(
     Args:
         package_name: Name of the package to update
         metadata_updates: Dictionary of metadata fields to update
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         validate_changes: Whether to validate metadata before applying
         dry_run: If True, only validate without applying changes
@@ -1201,7 +1497,7 @@ async def manage_package_urls_tool(
         action: Action to perform ('list', 'add', 'update', 'remove')
         url_type: Type of URL ('homepage', 'documentation', 'repository', 'bug_tracker', etc.)
         url_value: URL value (required for add/update actions)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -1247,7 +1543,7 @@ async def set_package_visibility_tool(
     Args:
         package_name: Name of the package
         visibility: Visibility setting ('public', 'private', 'unlisted')
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         confirmation_required: Whether to require explicit confirmation
         
@@ -1295,7 +1591,7 @@ async def manage_package_keywords_tool(
         package_name: Name of the package
         action: Action to perform ('list', 'add', 'remove', 'replace')
         keywords: List of keywords (required for add/remove/replace actions)
-        api_token: PyPI API token (or use PYPI_API_TOKEN env var)
+        api_token: PyPI API token (configure in ~/.pypirc for automatic authentication)
         test_pypi: Whether to use TestPyPI instead of production PyPI
         
     Returns:
@@ -1561,7 +1857,7 @@ async def get_pypi_trending_today_tool(
         NetworkError: For network-related errors
     """
     try:
-        logger.info(f"MCP tool: Getting trending packages for today")
+        logger.info("MCP tool: Getting trending packages for today")
         result = await get_pypi_trending_today(category, limit, trending_metric)
         logger.info(f"Found {len(result.get('trending_packages', []))} trending packages")
         return result
@@ -1760,7 +2056,7 @@ async def check_pypi_upload_requirements_tool(
         result = await check_pypi_upload_requirements(
             package_path, check_completeness, validate_metadata, check_security
         )
-        logger.info(f"Upload requirements check completed")
+        logger.info("Upload requirements check completed")
         return result
     except Exception as e:
         logger.error(f"Error checking upload requirements for {package_path}: {e}")
@@ -2584,6 +2880,72 @@ async def track_package_updates_prompt(
 
     # Step 7: Return final prompt
     return result
+
+
+@mcp.tool()
+async def zen_of_python() -> dict[str, Any]:
+    """Display the Zen of Python with current user attribution.
+    
+    This tool imports the famous 'this' module to show the Zen of Python
+    and adds a personal touch with the current user's name.
+    
+    Returns:
+        Dictionary containing the Zen of Python and user info
+    """
+    try:
+        # Get the current user
+        current_user = os.getenv("USER") or os.getenv("USERNAME") or "pythoneer"
+
+        # Capture the Zen of Python output
+        import contextlib
+        import io
+
+        zen_output = io.StringIO()
+        with contextlib.redirect_stdout(zen_output):
+            pass  # This prints to stdout when imported
+
+        zen_text = zen_output.getvalue()
+
+        # If no output (already imported), get it directly
+        if not zen_text.strip():
+            zen_text = """The Zen of Python, by Tim Peters
+
+Beautiful is better than ugly.
+Explicit is better than implicit.
+Simple is better than complex.
+Complex is better than complicated.
+Flat is better than nested.
+Sparse is better than dense.
+Readability counts.
+Special cases aren't special enough to break the rules.
+Although practicality beats purity.
+Errors should never pass silently.
+Unless explicitly silenced.
+In the face of ambiguity, refuse the temptation to guess.
+There should be one-- and preferably only one --obvious way to do it.
+Although that way may not be obvious at first unless you're Dutch.
+Now is better than never.
+Although never is often better than *right* now.
+If the implementation is hard to explain, it's a bad idea.
+If the implementation is easy to explain, it may be a good idea.
+Namespaces are one honking great idea -- let's do more of those!"""
+
+        logger.info(f"MCP tool: Zen of Python displayed for {current_user}")
+
+        return {
+            "zen": zen_text,
+            "attributed_to": current_user,
+            "message": f"🧘‍♂️ The Zen of Python, as appreciated by {current_user}",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "fun_fact": "The 'this' module contains the famous Zen of Python easter egg!"
+        }
+    except Exception as e:
+        logger.error(f"Error displaying Zen of Python: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "message": "Failed to achieve enlightenment 😅"
+        }
 
 
 @click.command()

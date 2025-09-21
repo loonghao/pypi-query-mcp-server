@@ -15,6 +15,7 @@ from .exceptions import (
     PyPIServerError,
     RateLimitError,
 )
+from .rate_limiter import get_rate_limited_client
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +47,8 @@ class PyPIClient:
         self._cache: dict[str, dict[str, Any]] = {}
         self._cache_ttl = 300  # 5 minutes
 
-        # HTTP client configuration
-        self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout),
-            headers={
-                "User-Agent": "pypi-query-mcp-server/0.1.0",
-                "Accept": "application/json",
-            },
-            follow_redirects=True,
-        )
+        # Use rate-limited HTTP client for PyPI API
+        self._client = get_rate_limited_client("pypi")
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -66,7 +60,7 @@ class PyPIClient:
 
     async def close(self):
         """Close the HTTP client."""
-        await self._client.aclose()
+        await self._client.close()
 
     def _validate_package_name(self, package_name: str) -> str:
         """Validate and normalize package name.
