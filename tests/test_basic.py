@@ -6,8 +6,15 @@ from pypi_query_mcp import __version__
 
 
 def test_version():
-    """Test that version is defined."""
-    assert __version__ == "0.1.0"
+    """Test that version is defined and parseable.
+
+    The exact number is deliberately not asserted: release-please owns it, and
+    a hardcoded value breaks the suite on every release.
+    """
+    assert __version__
+    parts = __version__.split(".")
+    assert len(parts) >= 2, f"unparseable version {__version__!r}"
+    assert parts[0].isdigit() and parts[1].isdigit()
 
 
 def test_import():
