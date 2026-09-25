@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server for querying PyPI package information,
 dependencies, and compatibility checking.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.6.5"  # x-release-please-version
 __author__ = "Hal"
 __email__ = "hal.long@outlook.com"
 
