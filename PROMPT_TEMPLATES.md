@@ -45,18 +45,18 @@ Generate a comprehensive quality analysis prompt for a PyPI package.
 Generate a detailed comparison prompt for multiple PyPI packages.
 
 **Parameters:**
-- `packages` (required): List of package names to compare (2-5 packages)
+- `packages` (required): Comma-separated package names to compare (2-5 packages)
 - `use_case` (required): Specific use case or project context
-- `criteria` (optional): Specific criteria to focus on
+- `criteria` (optional): Comma-separated criteria to focus on
 
 **Use Case:** When choosing between multiple packages that serve similar purposes.
 
 **Example:**
 ```json
 {
-  "packages": ["requests", "httpx", "aiohttp"],
+  "packages": "requests, httpx, aiohttp",
   "use_case": "Building a high-performance web API client",
-  "criteria": ["performance", "async support", "ease of use"]
+  "criteria": "performance, async support, ease of use"
 }
 ```
 
@@ -85,7 +85,7 @@ Generate a prompt for finding package alternatives.
 Generate a prompt for resolving dependency conflicts.
 
 **Parameters:**
-- `conflicts` (required): List of conflicting dependencies or error messages
+- `conflicts` (required): Comma-separated conflicting dependencies or error messages
 - `python_version` (optional): Target Python version
 - `project_context` (optional): Brief project description
 
@@ -94,9 +94,7 @@ Generate a prompt for resolving dependency conflicts.
 **Example:**
 ```json
 {
-  "conflicts": [
-    "django 4.2.0 requires sqlparse>=0.3.1, but you have sqlparse 0.2.4"
-  ],
+  "conflicts": "django 4.2.0 requires sqlparse>=0.3.1, but you have sqlparse 0.2.4",
   "python_version": "3.10",
   "project_context": "Django web application"
 }
@@ -127,7 +125,7 @@ Generate a prompt for planning package version upgrades.
 Generate a prompt for security risk auditing of packages.
 
 **Parameters:**
-- `packages` (required): List of packages to audit
+- `packages` (required): Comma-separated packages to audit
 - `environment` (optional): Environment context (development/staging/production)
 - `compliance_requirements` (optional): Specific compliance requirements
 
@@ -136,7 +134,7 @@ Generate a prompt for security risk auditing of packages.
 **Example:**
 ```json
 {
-  "packages": ["django", "requests", "pillow"],
+  "packages": "django, requests, pillow",
   "environment": "production",
   "compliance_requirements": "SOC2, GDPR compliance"
 }
@@ -172,7 +170,7 @@ Generate a detailed migration checklist prompt.
 
 **Parameters:**
 - `migration_type` (required): Type of migration (package_replacement, version_upgrade, framework_migration, dependency_cleanup)
-- `packages_involved` (required): List of packages involved
+- `packages_involved` (required): Comma-separated packages involved
 - `environment` (optional): Target environment (development/staging/production/all)
 
 **Use Case:** When you need a comprehensive checklist for migration tasks.
@@ -181,7 +179,7 @@ Generate a detailed migration checklist prompt.
 ```json
 {
   "migration_type": "package_replacement",
-  "packages_involved": ["flask", "fastapi"],
+  "packages_involved": "flask, fastapi",
   "environment": "production"
 }
 ```
