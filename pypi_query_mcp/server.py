@@ -1,10 +1,11 @@
 """FastMCP server for PyPI package queries."""
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 import click
 from fastmcp import FastMCP
+from pydantic import Field
 
 from .core.exceptions import InvalidPackageNameError, NetworkError, PackageNotFoundError
 from .prompts import (
@@ -617,21 +618,38 @@ async def analyze_package_quality_prompt(
 
 @mcp.prompt()
 async def compare_packages_prompt(
-    packages: list[str], use_case: str, criteria: list[str] | None = None
+    packages: Annotated[
+        str,
+        Field(description="Comma-separated list of 2-5 package names to compare"),
+    ],
+    use_case: Annotated[
+        str, Field(description="Specific use case or project context for comparison")
+    ],
+    criteria: Annotated[
+        str | None,
+        Field(description="Comma-separated criteria (e.g., performance,security)"),
+    ] = None,
 ) -> str:
     """Generate a detailed comparison prompt for multiple PyPI packages."""
+    package_list = [pkg.strip() for pkg in packages.split(",") if pkg.strip()]
+    criteria_list = (
+        [item.strip() for item in criteria.split(",") if item.strip()]
+        if criteria
+        else None
+    )
+
     # Step 3: Call Prompt generator
-    template = await compare_packages(packages, use_case, criteria)
+    template = await compare_packages(package_list, use_case, criteria_list)
 
     # Step 5: Parameter replacement
-    packages_text = ", ".join(f"'{pkg}'" for pkg in packages)
+    packages_text = ", ".join(f"'{pkg}'" for pkg in package_list)
     result = template.replace("{{packages_text}}", packages_text)
     result = result.replace("{{use_case}}", use_case)
 
     # Handle criteria parameter
-    if criteria:
+    if criteria_list:
         criteria_text = (
-            f"\n\nFocus particularly on these criteria: {', '.join(criteria)}"
+            f"\n\nFocus particularly on these criteria: {', '.join(criteria_list)}"
         )
     else:
         criteria_text = ""
@@ -677,13 +695,19 @@ async def suggest_alternatives_prompt(
 
 @mcp.prompt()
 async def resolve_dependency_conflicts_prompt(
-    conflicts: list[str],
+    conflicts: Annotated[
+        str,
+        Field(
+            description="Comma-separated list of conflicting dependencies or error messages"
+        ),
+    ],
     python_version: str | None = None,
     project_context: str | None = None,
 ) -> str:
     """Generate a prompt for resolving dependency conflicts."""
+    conflict_list = [item.strip() for item in conflicts.split(",") if item.strip()]
     messages = await resolve_dependency_conflicts(
-        conflicts, python_version, project_context
+        conflict_list, python_version, project_context
     )
     return messages[0].text
 
@@ -704,13 +728,17 @@ async def plan_version_upgrade_prompt(
 
 @mcp.prompt()
 async def audit_security_risks_prompt(
-    packages: list[str],
+    packages: Annotated[
+        str,
+        Field(description="Comma-separated list of packages to audit for security risks"),
+    ],
     environment: str | None = None,
     compliance_requirements: str | None = None,
 ) -> str:
     """Generate a prompt for security risk auditing of packages."""
+    package_list = [pkg.strip() for pkg in packages.split(",") if pkg.strip()]
     messages = await audit_security_risks(
-        packages, environment, compliance_requirements
+        package_list, environment, compliance_requirements
     )
     return messages[0].text
 
@@ -732,11 +760,18 @@ async def plan_package_migration_prompt(
 
 @mcp.prompt()
 async def generate_migration_checklist_prompt(
-    migration_type: str, packages_involved: list[str], environment: str = "all"
+    migration_type: str,
+    packages_involved: Annotated[
+        str, Field(description="Comma-separated list of packages in the migration")
+    ],
+    environment: str = "all",
 ) -> str:
     """Generate a detailed migration checklist prompt."""
+    package_list = [
+        pkg.strip() for pkg in packages_involved.split(",") if pkg.strip()
+    ]
     messages = await generate_migration_checklist(
-        migration_type, packages_involved, environment
+        migration_type, package_list, environment
     )
     return messages[0].text
 

@@ -22,13 +22,13 @@ async def analyze_package_quality(
         str | None, Field(description="Specific version to analyze")
     ] = None,
     ctx: Context | None = None,
-) -> list[Message]:
+) -> str:
     """Generate a comprehensive package quality analysis prompt template.
 
     This prompt template helps analyze a Python package's quality, maintenance status,
     security, performance, and overall suitability for use in projects.
 
-    Returns a list containing a Message object with the analysis prompt.
+    Returns the template string with {{package_name}} and {{version_text}} placeholders.
     """
     template = """Please provide a comprehensive quality analysis of the Python package '{{package_name}}' {{version_text}}.
 
@@ -62,7 +62,7 @@ Analyze the following aspects and provide a detailed assessment:
 
 Please provide specific examples and actionable insights where possible."""
 
-    return [Message(template)]
+    return template
 
 
 async def compare_packages(

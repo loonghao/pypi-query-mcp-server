@@ -111,23 +111,23 @@ class TestPackageAnalysisPrompts:
         """Test package quality analysis prompt generation."""
         result = await analyze_package_quality("requests", "2.31.0")
 
-        assert len(result) == 1
+        assert isinstance(result, str)
         # Check for template placeholders instead of actual values
-        assert "{{package_name}}" in result[0].text
-        assert "{{version_text}}" in result[0].text
-        assert "Package Overview" in result[0].text
-        assert "Technical Quality" in result[0].text
-        assert "Security & Reliability" in result[0].text
+        assert "{{package_name}}" in result
+        assert "{{version_text}}" in result
+        assert "Package Overview" in result
+        assert "Technical Quality" in result
+        assert "Security & Reliability" in result
 
     @pytest.mark.asyncio
     async def test_analyze_package_quality_no_version(self):
         """Test package quality analysis without specific version."""
         result = await analyze_package_quality("django")
 
-        assert len(result) == 1
+        assert isinstance(result, str)
         # Check for template placeholders
-        assert "{{package_name}}" in result[0].text
-        assert "{{version_text}}" in result[0].text
+        assert "{{package_name}}" in result
+        assert "{{version_text}}" in result
 
     @pytest.mark.asyncio
     async def test_compare_packages(self):
@@ -251,8 +251,8 @@ class TestPromptTemplateStructure:
     """Test prompt template structure and consistency."""
 
     @pytest.mark.asyncio
-    async def test_all_prompts_return_message_list(self):
-        """Test that all prompt templates return list of Message objects."""
+    async def test_all_prompts_return_content(self):
+        """Test that all prompt templates return usable prompt content."""
         # Test a few representative prompts
         prompts_to_test = [
             (analyze_package_quality, ("requests",)),
@@ -267,9 +267,13 @@ class TestPromptTemplateStructure:
 
         for prompt_func, args in prompts_to_test:
             result = await prompt_func(*args)
+            # analyze_package_quality returns a plain str; the mocked
+            # generators return a list of Message-like objects.
+            if isinstance(result, str):
+                assert len(result) > 0
+                continue
             assert isinstance(result, list)
             assert len(result) > 0
-            # Check that each item has a text attribute (Message-like)
             for message in result:
                 assert hasattr(message, "text")
                 assert isinstance(message.text, str)
@@ -279,7 +283,7 @@ class TestPromptTemplateStructure:
     async def test_prompts_contain_structured_content(self):
         """Test that prompts contain structured, useful content."""
         result = await analyze_package_quality("requests")
-        message_text = result[0].text
+        message_text = result
 
         # Check for structured sections
         assert "##" in message_text  # Should have markdown headers
